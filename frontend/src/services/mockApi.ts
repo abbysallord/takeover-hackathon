@@ -8,7 +8,7 @@ export const mockApi = {
           quotesGenerated: 24,
           revenuePipeline: '$1.2M'
         });
-      }, 500);
+      }, 1500);
     });
   },
 
@@ -22,7 +22,7 @@ export const mockApi = {
           { id: 4, step: 'Quotation Generation', desc: 'Drafting PDF quote based on available inventory.', status: 'Pending', color: 'text-white/40' },
           { id: 5, step: 'Manager Approval', desc: 'Awaiting human review before sending out email.', status: 'Pending', color: 'text-white/40' }
         ]);
-      }, 600);
+      }, 1500);
     });
   },
 

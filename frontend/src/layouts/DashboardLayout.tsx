@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { 
   Grid, LayoutDashboard, Inbox, UserPlus, Users, FileText, 
-  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu
+  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { CommandPalette } from '../components/ui/CommandPalette';
 
 export function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -79,21 +80,38 @@ export function DashboardLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Desktop Header for Search */}
+        <div className="hidden md:flex items-center justify-end px-8 py-4 border-b border-white/5 bg-[#1e1e21]">
+          <button 
+            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            className="flex items-center gap-2 bg-black/20 hover:bg-black/40 text-white/40 hover:text-white/80 px-3 py-1.5 rounded-lg border border-white/5 transition-colors text-xs font-medium"
+          >
+            <Search className="w-4 h-4" />
+            <span>Search</span>
+            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] ml-2">⌘K</span>
+          </button>
+        </div>
+
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-[#1e1e21]">
           <Link to="/">
             <Logo className="w-5 h-5 text-white" />
           </Link>
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white">
-            <Menu className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))} className="text-white/70 hover:text-white">
+              <Search className="w-5 h-5" />
+            </button>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white">
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
         </main>
       </div>
-
+      <CommandPalette />
     </div>
   );
 }

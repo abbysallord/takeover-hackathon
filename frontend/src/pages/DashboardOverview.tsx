@@ -6,11 +6,14 @@ import { mockApi } from '../services/mockApi';
 export function DashboardOverview() {
   const [stats, setStats] = useState<any>(null);
   const [workflows, setWorkflows] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Fetch mock data from our API service
-    mockApi.getStats().then(setStats);
-    mockApi.getWorkflows().then(setWorkflows);
+    Promise.all([
+      mockApi.getStats().then(setStats),
+      mockApi.getWorkflows().then(setWorkflows)
+    ]).then(() => setIsLoading(false));
   }, []);
 
   return (
@@ -36,14 +39,18 @@ export function DashboardOverview() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/5 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 mb-8">
           {[
-            { label: 'EMAILS TODAY', value: stats ? stats.emailsToday : '...' },
-            { label: 'ACTIVE LEADS', value: stats ? stats.activeLeads : '...' },
-            { label: 'QUOTES GENERATED', value: stats ? stats.quotesGenerated : '...' },
-            { label: 'REVENUE PIPELINE', value: stats ? stats.revenuePipeline : '...' }
+            { label: 'EMAILS TODAY', value: stats?.emailsToday },
+            { label: 'ACTIVE LEADS', value: stats?.activeLeads },
+            { label: 'QUOTES GENERATED', value: stats?.quotesGenerated },
+            { label: 'REVENUE PIPELINE', value: stats?.revenuePipeline }
           ].map((stat, i) => (
             <div key={i} className="px-6 py-5 flex flex-col justify-center">
               <div className="text-[10px] tracking-wider text-white/35 font-semibold mb-1.5">{stat.label}</div>
-              <div className="text-2xl font-medium text-white">{stat.value}</div>
+              {isLoading ? (
+                <div className="h-8 w-20 bg-white/10 rounded animate-pulse" />
+              ) : (
+                <div className="text-2xl font-medium text-white">{stat.value}</div>
+              )}
             </div>
           ))}
         </div>
@@ -76,19 +83,30 @@ export function DashboardOverview() {
                 </tr>
               </thead>
               <tbody>
-                {workflows.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
-                    <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
-                    <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
-                      {row.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : (row.status === 'Processing' ? <RotateCw className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-white/20 ml-1" />)}
-                      {row.status}
-                    </td>
-                  </tr>
-                ))}
-                {workflows.length === 0 && (
+                {isLoading ? (
+                  // Skeleton Rows
+                  [1, 2, 3, 4, 5].map(i => (
+                    <tr key={`skel-${i}`}>
+                      <td className="px-4 py-3.5 border-b border-white/5"><div className="h-4 w-32 bg-white/5 rounded animate-pulse" /></td>
+                      <td className="px-4 py-3.5 border-b border-white/5"><div className="h-4 w-64 bg-white/5 rounded animate-pulse" /></td>
+                      <td className="px-4 py-3.5 border-b border-white/5"><div className="h-4 w-20 bg-white/5 rounded animate-pulse" /></td>
+                    </tr>
+                  ))
+                ) : (
+                  workflows.map((row) => (
+                    <tr key={row.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
+                      <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
+                      <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
+                        {row.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : (row.status === 'Processing' ? <RotateCw className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-white/20 ml-1" />)}
+                        {row.status}
+                      </td>
+                    </tr>
+                  ))
+                )}
+                {!isLoading && workflows.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-xs text-white/40">Loading workflows...</td>
+                    <td colSpan={3} className="px-4 py-8 text-center text-xs text-white/40">No active workflows found.</td>
                   </tr>
                 )}
               </tbody>
