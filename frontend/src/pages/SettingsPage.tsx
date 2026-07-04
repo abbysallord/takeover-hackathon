@@ -37,7 +37,7 @@ export function SettingsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-white/40 uppercase tracking-wider mb-2">Email Address</label>
-              <input type="email" defaultValue="sales@flowops.ai" className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
+              <input type="email" defaultValue="sales@hackarena.com" className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#3b82f6]" />
             </div>
             
             <hr className="border-white/10 my-4" />

@@ -4,7 +4,7 @@ export function KnowledgePage() {
   const docs = [
     { name: 'Enterprise_Pricing_Q4.pdf', type: 'pdf', size: '2.4 MB', date: 'Oct 20' },
     { name: 'Standard_Terms_and_Conditions.pdf', type: 'pdf', size: '1.1 MB', date: 'Oct 15' },
-    { name: 'https://flowops.ai/docs/api', type: 'url', size: '-', date: 'Oct 10' },
+    { name: 'https://hackarena.com/docs/api', type: 'url', size: '-', date: 'Oct 10' },
   ];
 
   return (

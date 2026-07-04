@@ -4,8 +4,11 @@ import { Mail, Search, FileText, CheckCircle2, Edit3, Send, User, Clock } from '
 import { Badge } from '../components/ui/Badge';
 import { Card } from '../components/ui/Card';
 import { PageTransition } from '../components/PageTransition';
+import { useToast } from '../components/ui/ToastContext';
+import { Typewriter } from '../components/Typewriter';
 
 export function InboxPage() {
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const isDemo = searchParams.get('demo') === 'true';
   const demoQuery = searchParams.get('q');
@@ -132,7 +135,7 @@ export function InboxPage() {
                   <div>
                     <div className="text-sm font-medium text-white">{selectedEmail.sender} <span className="text-white/40 font-normal">&lt;{selectedEmail.sender.split(' ')[0].toLowerCase()}@{selectedEmail.company.replace(' ', '').toLowerCase()}.com&gt;</span></div>
                     <div className="text-xs text-white/40 flex items-center gap-2 mt-0.5">
-                      <span>To: sales@flowops.ai</span>
+                      <span>To: sales@hackarena.com</span>
                       <span>•</span>
                       <Clock className="w-3 h-3" />
                       <span>{selectedEmail.time}</span>
@@ -169,13 +172,8 @@ export function InboxPage() {
                       <span className="text-xs text-white/40 uppercase tracking-wider font-medium">Suggested Reply</span>
                     </div>
                     
-                    <div className="text-sm text-white/90 leading-relaxed mb-6 bg-white/5 p-4 rounded-xl">
-                      Hi {selectedEmail.sender.split(' ')[0]},<br /><br />
-                      Thanks for reaching out! We'd be thrilled to have {selectedEmail.company} on our Enterprise tier.<br /><br />
-                      I have attached a formal quotation as requested. Regarding your question on integrations, our platform is fully configurable to meet your specific workflows.<br /><br />
-                      Let me know if you need any adjustments to the quote.<br /><br />
-                      Best,<br />
-                      Sales Team | FlowOps
+                    <div className="text-sm text-white/90 leading-relaxed mb-6 bg-white/5 p-4 rounded-xl min-h-[140px]">
+                      <Typewriter text={`Hi ${selectedEmail.sender.split(' ')[0]},\n\nThanks for reaching out! We'd be thrilled to have ${selectedEmail.company} on our Enterprise tier.\n\nI have attached a formal quotation as requested. Regarding your question on integrations, our platform is fully configurable to meet your specific workflows.\n\nLet me know if you need any adjustments to the quote.\n\nBest,\nSales Team | Flow by Hackarena`} delay={8} />
                     </div>
 
                     <div className="mb-6">
@@ -190,10 +188,16 @@ export function InboxPage() {
                     </div>
 
                     <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                      <button className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => toast('Draft approved and sent successfully!', 'success')}
+                        className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
                         <Send className="w-4 h-4" /> Approve & Send
                       </button>
-                      <button className="flex-1 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 rounded-lg transition-colors border border-white/10 flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => toast('Opening draft editor...', 'info')}
+                        className="flex-1 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 rounded-lg transition-colors border border-white/10 flex items-center justify-center gap-2"
+                      >
                         <Edit3 className="w-4 h-4" /> Edit Draft
                       </button>
                     </div>

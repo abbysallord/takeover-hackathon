@@ -13,7 +13,9 @@ export function Navbar() {
         {/* Logo Left */}
         <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Logo className="text-gray-900 w-5 h-5 sm:w-6 sm:h-6" />
-          <span className="text-gray-900 font-medium text-lg tracking-tight">FlowOps AI</span>
+          <span className="text-gray-900 font-bold text-xl tracking-tight">
+            Flow <span className="text-sm font-normal text-gray-500">by Hackarena</span>
+          </span>
         </Link>
 
         {/* Desktop Nav Center */}

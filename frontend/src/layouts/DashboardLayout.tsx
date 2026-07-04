@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { 
   Grid, LayoutDashboard, Inbox, UserPlus, Users, FileText, 
-  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch 
+  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 
 export function DashboardLayout() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: GitBranch, label: 'Workflow Timeline', path: '/dashboard/workflow' },
@@ -21,10 +24,22 @@ export function DashboardLayout() {
   ];
 
   return (
-    <div className="flex h-screen w-full bg-[#151516] text-left font-sans text-white overflow-hidden">
+    <div className="flex h-screen w-full bg-[#151516] text-left font-sans text-white overflow-hidden relative">
       
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 border-r border-white/5 bg-[#1e1e21] flex flex-col flex-shrink-0">
+      <div className={`
+        fixed md:static inset-y-0 left-0 z-50 w-64 border-r border-white/5 bg-[#1e1e21] flex flex-col flex-shrink-0
+        transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
         <div className="px-5 py-4 flex flex-col gap-6 flex-1 overflow-y-auto">
           
           <div className="flex items-center justify-between">
@@ -47,6 +62,7 @@ export function DashboardLayout() {
                 key={i} 
                 to={item.path}
                 end={item.path === '/dashboard'}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) => 
                   `flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                     isActive ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/60 hover:text-white/80'
@@ -62,8 +78,18 @@ export function DashboardLayout() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-[#1e1e21]">
+          <Link to="/">
+            <Logo className="w-5 h-5 text-white" />
+          </Link>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white">
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <Outlet />
         </main>
       </div>

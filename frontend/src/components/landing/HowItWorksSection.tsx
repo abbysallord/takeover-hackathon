@@ -10,7 +10,7 @@ export function HowItWorksSection() {
     {
       icon: Search,
       title: '2. AI Extraction & RAG',
-      description: 'FlowOps AI instantly reads the email, extracts key entities, and searches your knowledge base.'
+      description: 'Flow by Hackarena instantly reads the email, extracts key entities, and searches your knowledge base.'
     },
     {
       icon: FileText,
@@ -33,7 +33,7 @@ export function HowItWorksSection() {
     <section className="py-24 bg-white relative z-10">
       <div className="max-w-7xl mx-auto px-5">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <h2 className="text-3xl md:text-4xl font-semibold text-gray-900 mb-4">How FlowOps Works</h2>
+          <h2 className="text-3xl md:text-4xl font-semibold text-gray-900 mb-4">How Flow by Hackarena Works</h2>
           <p className="text-gray-600">See how an inbound sales enquiry is transformed into a closed deal in seconds, without manual data entry.</p>
         </div>
 

@@ -1,5 +1,6 @@
 import { BarChart2, TrendingUp, Clock, Zap } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 export function AnalyticsPage() {
   const stats = [
@@ -9,12 +10,22 @@ export function AnalyticsPage() {
     { label: 'Revenue Influenced', value: '$242k', trend: '+18%', icon: BarChart2, color: 'text-purple-500' },
   ];
 
+  const chartData = [
+    { name: 'Oct 1', workflows: 40 },
+    { name: 'Oct 5', workflows: 60 },
+    { name: 'Oct 10', workflows: 45 },
+    { name: 'Oct 15', workflows: 80 },
+    { name: 'Oct 20', workflows: 55 },
+    { name: 'Oct 25', workflows: 90 },
+    { name: 'Oct 30', workflows: 100 },
+  ];
+
   return (
     <div className="animate-fade-up">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-white mb-1">Analytics overview</h1>
-          <p className="text-sm text-white/40">Measure the impact of FlowOps AI on your sales cycle.</p>
+          <p className="text-sm text-white/40">Measure the impact of Flow by Hackarena on your sales cycle.</p>
         </div>
       </div>
 
@@ -37,20 +48,24 @@ export function AnalyticsPage() {
 
       <Card className="p-6 h-80 flex flex-col justify-between">
         <h3 className="text-sm font-medium text-white mb-6">Workflows Executed (30 Days)</h3>
-        <div className="flex-1 flex items-end gap-2 sm:gap-4 h-full pt-4">
-          {/* Simulated Chart Bars */}
-          {[40, 60, 45, 80, 55, 90, 75, 100, 85, 65, 70, 95].map((height, i) => (
-            <div key={i} className="flex-1 bg-[#3b82f6]/20 hover:bg-[#3b82f6] rounded-t-sm transition-colors relative group cursor-pointer" style={{ height: `${height}%` }}>
-              <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-gray-900 text-xs font-bold py-1 px-2 rounded pointer-events-none transition-opacity">
-                {height * 12}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-[10px] text-white/40 mt-4 uppercase tracking-wider">
-          <span>Oct 1</span>
-          <span>Oct 15</span>
-          <span>Oct 30</span>
+        <div className="flex-1 w-full min-h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorWorkflows" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="name" stroke="#ffffff40" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis stroke="#ffffff40" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1e1e21', borderColor: '#ffffff10', borderRadius: '8px' }}
+                itemStyle={{ color: '#fff' }}
+              />
+              <Area type="monotone" dataKey="workflows" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorWorkflows)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </Card>
     </div>

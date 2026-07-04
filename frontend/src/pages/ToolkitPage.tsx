@@ -9,7 +9,7 @@ export function ToolkitPage() {
         <ToolkitSection />
       </div>
       <footer className="bg-gray-900 py-12 text-center">
-        <p className="text-gray-400 text-sm">© 2026 FlowOps AI. All rights reserved.</p>
+        <p className="text-gray-400 text-sm">© 2026 Flow by Hackarena. All rights reserved.</p>
       </footer>
     </div>
   );

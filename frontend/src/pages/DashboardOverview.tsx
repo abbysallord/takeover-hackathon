@@ -1,7 +1,18 @@
+import { useState, useEffect } from 'react';
 import { Grid, CheckCircle2, RotateCw, Sparkles, Zap } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
+import { mockApi } from '../services/mockApi';
 
 export function DashboardOverview() {
+  const [stats, setStats] = useState<any>(null);
+  const [workflows, setWorkflows] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch mock data from our API service
+    mockApi.getStats().then(setStats);
+    mockApi.getWorkflows().then(setWorkflows);
+  }, []);
+
   return (
     <PageTransition>
       <div className="max-w-5xl mx-auto">
@@ -23,12 +34,12 @@ export function DashboardOverview() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-4 divide-x divide-white/5 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/5 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 mb-8">
           {[
-            { label: 'EMAILS TODAY', value: '142' },
-            { label: 'ACTIVE LEADS', value: '38' },
-            { label: 'QUOTES GENERATED', value: '24' },
-            { label: 'REVENUE PIPELINE', value: '$1.2M' }
+            { label: 'EMAILS TODAY', value: stats ? stats.emailsToday : '...' },
+            { label: 'ACTIVE LEADS', value: stats ? stats.activeLeads : '...' },
+            { label: 'QUOTES GENERATED', value: stats ? stats.quotesGenerated : '...' },
+            { label: 'REVENUE PIPELINE', value: stats ? stats.revenuePipeline : '...' }
           ].map((stat, i) => (
             <div key={i} className="px-6 py-5 flex flex-col justify-center">
               <div className="text-[10px] tracking-wider text-white/35 font-semibold mb-1.5">{stat.label}</div>
@@ -38,7 +49,7 @@ export function DashboardOverview() {
         </div>
 
         {/* Categories */}
-        <div className="grid grid-cols-3 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
           {['Hardware Sales', 'Software Licensing', 'Enterprise Solutions'].map((cat, i) => (
             <div key={i} className="rounded-xl bg-white/[0.03] ring-1 ring-white/5 p-5 flex flex-col gap-3 relative overflow-hidden group cursor-pointer hover:bg-white/[0.05] transition-colors">
               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mb-2">
@@ -55,8 +66,8 @@ export function DashboardOverview() {
           <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
             <span className="text-xs text-white/50 font-medium uppercase tracking-wider">Active Workflow Pipeline</span>
           </div>
-          <div className="p-3">
-            <table className="w-full text-left border-collapse">
+          <div className="p-3 overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr>
                   <th className="px-4 py-3 text-[10px] font-medium text-white/35 uppercase">Process Step</th>
@@ -65,14 +76,8 @@ export function DashboardOverview() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { step: 'Information Extraction', desc: 'Parsing requirements from incoming customer email.', status: 'Completed', color: 'text-[#28c840]' },
-                  { step: 'Knowledge Retrieval', desc: 'RAG search for related technical documentation.', status: 'Completed', color: 'text-[#28c840]' },
-                  { step: 'Inventory Check', desc: 'Checking CRM & warehouse for available stock.', status: 'Processing', color: 'text-[#3b82f6]' },
-                  { step: 'Quotation Generation', desc: 'Drafting PDF quote based on available inventory.', status: 'Pending', color: 'text-white/40' },
-                  { step: 'Manager Approval', desc: 'Awaiting human review before sending out email.', status: 'Pending', color: 'text-white/40' }
-                ].map((row, i) => (
-                  <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                {workflows.map((row) => (
+                  <tr key={row.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
                     <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
                     <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
@@ -81,6 +86,11 @@ export function DashboardOverview() {
                     </td>
                   </tr>
                 ))}
+                {workflows.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-xs text-white/40">Loading workflows...</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

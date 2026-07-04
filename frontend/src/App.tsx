@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { ToastProvider } from './components/ui/ToastContext';
 import { Hero } from './components/Hero';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { DashboardOverview } from './pages/DashboardOverview';
@@ -48,9 +49,11 @@ function MainRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <MainRoutes />
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <MainRoutes />
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
