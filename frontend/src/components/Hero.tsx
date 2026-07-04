@@ -1,16 +1,29 @@
 import { Navbar } from './Navbar';
 import { ArrowUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { ScaledDashboard } from './ScaledDashboard';
 import { DashboardMockup } from './DashboardMockup';
+import { PageTransition } from './PageTransition';
 
 export function Hero() {
+  const [query, setQuery] = useState('');
+  const navigate = useNavigate();
+
+  const handleDemoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      navigate(`/dashboard/inbox?demo=true&q=${encodeURIComponent(query.trim())}`);
+    }
+  };
+
   return (
-    <section 
-      className="relative min-h-[100svh] overflow-hidden bg-cover bg-center flex flex-col"
-      style={{ backgroundImage: `url('https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260611_133301_d5f2a94a-b22e-4e4a-a6b6-eacdddf1f5b0.png&w=1280&q=85')` }}
-    >
-      <Navbar />
+    <PageTransition>
+      <section 
+        className="relative min-h-[100svh] overflow-hidden bg-cover bg-center flex flex-col"
+        style={{ backgroundImage: `url('https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260611_133301_d5f2a94a-b22e-4e4a-a6b6-eacdddf1f5b0.png&w=1280&q=85')` }}
+      >
+        <Navbar />
 
       <div className="flex-1 min-h-8 sm:min-h-12 lg:min-h-16 shrink-0" />
 
@@ -26,9 +39,11 @@ export function Hero() {
         </h1>
 
         <div className="animate-fade-up [animation-delay:220ms] mt-5 sm:mt-6 w-full max-w-xl">
-          <form className="flex items-center gap-3 rounded-full bg-white/60 backdrop-blur-md ring-1 ring-gray-200 pl-5 pr-1.5 py-1.5" onSubmit={(e) => e.preventDefault()}>
+          <form className="flex items-center gap-3 rounded-full bg-white/60 backdrop-blur-md ring-1 ring-gray-200 pl-5 pr-1.5 py-1.5" onSubmit={handleDemoSubmit}>
             <input 
               type="text" 
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Paste a customer enquiry..." 
               className="flex-1 bg-transparent text-sm sm:text-base text-gray-900 placeholder-gray-500 outline-none py-2"
             />
@@ -63,11 +78,12 @@ export function Hero() {
         </ScaledDashboard>
       </div>
 
-      <img 
-        src="https://res.cloudinary.com/dy5er7kv5/image/upload/q_auto/f_auto/v1781191264/grass_eam204.png" 
-        alt="" 
-        className="pointer-events-none absolute bottom-0 left-0 z-10 w-full select-none"
-      />
-    </section>
+        <img 
+          src="https://res.cloudinary.com/dy5er7kv5/image/upload/q_auto/f_auto/v1781191264/grass_eam204.png" 
+          alt="" 
+          className="pointer-events-none absolute bottom-0 left-0 z-10 w-full select-none"
+        />
+      </section>
+    </PageTransition>
   );
 }

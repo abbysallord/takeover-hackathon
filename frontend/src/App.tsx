@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { Hero } from './components/Hero';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { DashboardOverview } from './pages/DashboardOverview';
@@ -16,10 +17,12 @@ import { KnowledgePage } from './pages/KnowledgePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-function App() {
+function MainRoutes() {
+  const location = useLocation();
+  
   return (
-    <BrowserRouter>
-      <Routes>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Hero />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/toolkit" element={<ToolkitPage />} />
@@ -39,6 +42,14 @@ function App() {
           <Route path="*" element={<PlaceholderPage />} />
         </Route>
       </Routes>
+    </AnimatePresence>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <MainRoutes />
     </BrowserRouter>
   );
 }
