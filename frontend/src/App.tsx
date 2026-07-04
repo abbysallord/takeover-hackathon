@@ -1,0 +1,46 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Hero } from './components/Hero';
+import { DashboardLayout } from './layouts/DashboardLayout';
+import { DashboardOverview } from './pages/DashboardOverview';
+import { WorkflowTimelinePage } from './pages/WorkflowTimelinePage';
+import { PlaceholderPage } from './pages/PlaceholderPage';
+import { ToolkitPage } from './pages/ToolkitPage';
+import { HowItWorksPage } from './pages/HowItWorksPage';
+import { InboxPage } from './pages/InboxPage';
+import { LeadsPage } from './pages/LeadsPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { QuotationsPage } from './pages/QuotationsPage';
+import { ApprovalsPage } from './pages/ApprovalsPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { KnowledgePage } from './pages/KnowledgePage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { SettingsPage } from './pages/SettingsPage';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Hero />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/toolkit" element={<ToolkitPage />} />
+        
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardOverview />} />
+          <Route path="workflow" element={<WorkflowTimelinePage />} />
+          <Route path="inbox" element={<InboxPage />} />
+          <Route path="leads" element={<LeadsPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="quotations" element={<QuotationsPage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<PlaceholderPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;

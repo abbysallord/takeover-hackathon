@@ -1,56 +1,32 @@
-# AI Sales Operations Manager - Frontend
+# React + TypeScript + Vite
 
-This folder contains the operator dashboard, approval screen, and workflow tracking visualizer.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
----
+Currently, two official plugins are available:
 
-## 🎨 Design & UI/UX Vision
-The goal is to design a high-fidelity, premium interface to wow judges at first glance.
-*   **Aesthetic**: Curated dark mode, modern typography (e.g., *Inter* or *Outfit*), clean card interfaces, smooth CSS transitions, and micro-interactions.
-*   **Key Views**:
-    *   **Workflow Pipeline**: A kanban or timeline view illustrating exactly where an inbound enquiry is in the pipeline (e.g., *Extraction -> Inventory -> Draft -> Approval -> Sent*).
-    *   **Operator Control Panel**: A detailed review pane where managers can see the extracted query parameters, check the generated PDF quotation, and review/edit email responses before approval.
-    *   **Analytics Dashboard**: Metric displays tracking processing times, automation rate, success rate, and value processed.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
----
+## React Compiler
 
-## 🛠️ Planned Tech Stack
-*   **Framework**: Next.js / Vite + React / Vanilla JS (TBD)
-*   **Styling**: Vanilla CSS (Tailwind if explicitly requested)
-*   **Icons**: Lucide React / Heroicons
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
----
+## Expanding the Oxlint configuration
 
-## 📂 Proposed Directory Structure
-*(To be populated during frontend development)*
-```text
-frontend/
-├── public/           # Static files
-├── src/
-│   ├── assets/       # Icons and UI images
-│   ├── components/   # Reusable UI elements (Timeline, QuoteViewer, Header)
-│   ├── hooks/        # Custom react hooks for fetching status
-│   ├── styles/       # Design system tokens and global css overrides
-│   ├── views/        # Dashboard, Approval, and Analytics pages
-│   ├── App.jsx       # App logic and router
-│   └── main.jsx      # React mount point
-├── package.json      # Node dependencies
-└── README.md         # This file
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
 ```
 
----
-
-## ⚙️ Setup Instructions (Draft)
-Once the frontend framework is initialized:
-1.  Navigate to the directory:
-    ```bash
-    cd frontend
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run development server:
-    ```bash
-    npm run dev
-    ```
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

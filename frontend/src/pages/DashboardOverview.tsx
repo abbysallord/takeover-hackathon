@@ -1,0 +1,88 @@
+import { Grid, CheckCircle2, RotateCw, Sparkles, Zap } from 'lucide-react';
+
+export function DashboardOverview() {
+  return (
+    <div className="max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#3b82f6] flex items-center justify-center shadow-lg">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-white">Acme Electronics</h2>
+            <p className="text-xs text-white/45 mt-0.5">AI Sales Operations Workspace</p>
+          </div>
+        </div>
+        <button className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-4 py-2 rounded-lg transition-colors text-white text-xs font-medium border border-white/5">
+          <Sparkles className="w-4 h-4" />
+          Run Workflow
+        </button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 divide-x divide-white/5 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 mb-8">
+        {[
+          { label: 'EMAILS TODAY', value: '142' },
+          { label: 'ACTIVE LEADS', value: '38' },
+          { label: 'QUOTES GENERATED', value: '24' },
+          { label: 'REVENUE PIPELINE', value: '$1.2M' }
+        ].map((stat, i) => (
+          <div key={i} className="px-6 py-5 flex flex-col justify-center">
+            <div className="text-[10px] tracking-wider text-white/35 font-semibold mb-1.5">{stat.label}</div>
+            <div className="text-2xl font-medium text-white">{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Categories */}
+      <div className="grid grid-cols-3 gap-5 mb-8">
+        {['Hardware Sales', 'Software Licensing', 'Enterprise Solutions'].map((cat, i) => (
+          <div key={i} className="rounded-xl bg-white/[0.03] ring-1 ring-white/5 p-5 flex flex-col gap-3 relative overflow-hidden group cursor-pointer hover:bg-white/[0.05] transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mb-2">
+              <Grid className="w-4 h-4 text-white/40" />
+            </div>
+            <span className="text-sm text-white font-medium">{cat}</span>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-full pointer-events-none" />
+          </div>
+        ))}
+      </div>
+
+      {/* Workflow Table */}
+      <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/5 overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01]">
+          <span className="text-xs text-white/50 font-medium uppercase tracking-wider">Active Workflow Pipeline</span>
+        </div>
+        <div className="p-3">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-[10px] font-medium text-white/35 uppercase">Process Step</th>
+                <th className="px-4 py-3 text-[10px] font-medium text-white/35 uppercase">Description</th>
+                <th className="px-4 py-3 text-[10px] font-medium text-white/35 uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { step: 'Information Extraction', desc: 'Parsing requirements from incoming customer email.', status: 'Completed', color: 'text-[#28c840]' },
+                { step: 'Knowledge Retrieval', desc: 'RAG search for related technical documentation.', status: 'Completed', color: 'text-[#28c840]' },
+                { step: 'Inventory Check', desc: 'Checking CRM & warehouse for available stock.', status: 'Processing', color: 'text-[#3b82f6]' },
+                { step: 'Quotation Generation', desc: 'Drafting PDF quote based on available inventory.', status: 'Pending', color: 'text-white/40' },
+                { step: 'Manager Approval', desc: 'Awaiting human review before sending out email.', status: 'Pending', color: 'text-white/40' }
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
+                  <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
+                  <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
+                    {row.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : (row.status === 'Processing' ? <RotateCw className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-white/20 ml-1" />)}
+                    {row.status}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
