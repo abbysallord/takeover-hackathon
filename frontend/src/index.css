@@ -59,3 +59,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) rgba(0, 0, 0, 0.2);
 }
+
+/* Fix dropdown options visibility in dark mode */
+option {
+  background-color: #18181b;
+  color: #ffffff;
+}
