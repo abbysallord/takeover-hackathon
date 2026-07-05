@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Grid, LayoutDashboard, Inbox, UserPlus, Users, FileText, 
-  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search
+  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search, LogOut
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { CommandPalette } from '../components/ui/CommandPalette';
@@ -90,6 +90,23 @@ export function DashboardLayout() {
                 <span className="text-xs font-medium">{item.label}</span>
               </NavLink>
             ))}
+            <hr className="border-white/5 my-4" />
+            <button 
+              onClick={async () => {
+                const ok = window.confirm("Are you sure you want to reset and logout of your workspace profile? This wipes all pipeline data.");
+                if (!ok) return;
+                try {
+                  await mockApi.resetWorkspace();
+                  window.location.href = '/onboarding';
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-[#ff5f57]/10 text-[#ff5f57]/80 hover:text-[#ff5f57] w-full text-left"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-xs font-medium">Reset & Logout</span>
+            </button>
           </div>
         </div>
       </div>

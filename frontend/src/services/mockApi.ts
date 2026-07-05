@@ -1,7 +1,9 @@
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001';
+
 export const mockApi = {
   getStats: async (): Promise<any> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/dashboard');
+      const res = await fetch(`${API_BASE}/dashboard`);
       if (!res.ok) throw new Error("Dashboard fetch failed");
       const data = await res.json();
       return {
@@ -33,7 +35,7 @@ export const mockApi = {
 
   simulateWorkflow: async (): Promise<any> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/workflows/simulate', {
+      const res = await fetch(`${API_BASE}/workflows/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,7 +55,7 @@ export const mockApi = {
 
   getWorkflows: async (): Promise<any[]> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/dashboard');
+      const res = await fetch(`${API_BASE}/dashboard`);
       if (!res.ok) throw new Error("Dashboard fetch failed");
       const data = await res.json();
       const recent = data.recent_workflows;
@@ -128,7 +130,7 @@ export const mockApi = {
 
   getApprovals: async (): Promise<any[]> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/approvals');
+      const res = await fetch(`${API_BASE}/approvals`);
       if (!res.ok) throw new Error("Approvals fetch failed");
       const data = await res.json();
       return data.map((app: any) => {
@@ -149,7 +151,8 @@ export const mockApi = {
           client: clientName,
           amount: amount,
           confidence: 98,
-          status: app.status.toLowerCase()
+          status: app.status.toLowerCase(),
+          suggestedReply: app.suggested_reply || null
         };
       });
     } catch (e) {
@@ -160,7 +163,7 @@ export const mockApi = {
 
   approveAction: async (id: number): Promise<{ success: boolean, id: number }> => {
     try {
-      const res = await fetch(`http://127.0.0.1:8001/approvals/${id}`, {
+      const res = await fetch(`${API_BASE}/approvals/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +182,7 @@ export const mockApi = {
   
   rejectAction: async (id: number): Promise<{ success: boolean, id: number }> => {
     try {
-      const res = await fetch(`http://127.0.0.1:8001/approvals/${id}`, {
+      const res = await fetch(`${API_BASE}/approvals/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,7 +201,7 @@ export const mockApi = {
 
   getWorkspace: async (): Promise<any> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/workspace');
+      const res = await fetch(`${API_BASE}/workspace`);
       if (!res.ok) throw new Error("Workspace fetch failed");
       return await res.json();
     } catch (e) {
@@ -209,7 +212,7 @@ export const mockApi = {
 
   setupWorkspace: async (data: any): Promise<any> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/workspace/setup', {
+      const res = await fetch(`${API_BASE}/workspace/setup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -224,7 +227,7 @@ export const mockApi = {
 
   runDemoMode: async (): Promise<any> => {
     try {
-      const res = await fetch('http://127.0.0.1:8001/workflows/demo-run', {
+      const res = await fetch(`${API_BASE}/workflows/demo-run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -233,6 +236,256 @@ export const mockApi = {
     } catch (e) {
       console.error("Error running demo mode:", e);
       return null;
+    }
+  },
+
+  getGoogleAuthUrl: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/auth-url`);
+      if (!res.ok) throw new Error("Google auth url failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error getting google auth url:", e);
+      return null;
+    }
+  },
+
+  resetWorkspace: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/reset`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error("Workspace reset failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error resetting workspace:", e);
+      return null;
+    }
+  },
+
+  getEmails: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/emails`);
+      if (!res.ok) throw new Error("Emails fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching emails:", e);
+      return [];
+    }
+  },
+
+  getWorkflowByEmailId: async (emailId: number): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workflows/email/${emailId}`);
+      if (!res.ok) throw new Error("Workflow details failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching workflow by email id:", e);
+      return null;
+    }
+  },
+
+  getLeads: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/leads`);
+      if (!res.ok) throw new Error("Leads fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching leads:", e);
+      return [];
+    }
+  },
+
+  createLead: async (data: any): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Lead creation failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error creating lead:", e);
+      return null;
+    }
+  },
+
+  updateLeadStatus: async (leadId: number, status: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/leads/${leadId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok) throw new Error("Lead status update failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error updating lead status:", e);
+      return null;
+    }
+  },
+
+  deleteLead: async (leadId: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Lead deletion failed");
+      return true;
+    } catch (e) {
+      console.error("Error deleting lead:", e);
+      return false;
+    }
+  },
+
+  getCustomers: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/customers`);
+      if (!res.ok) throw new Error("Customers fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching customers:", e);
+      return [];
+    }
+  },
+
+  createCustomer: async (data: any): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/customers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Customer creation failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error creating customer:", e);
+      return null;
+    }
+  },
+
+  getQuotations: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/quotations`);
+      if (!res.ok) throw new Error("Quotations fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching quotations:", e);
+      return [];
+    }
+  },
+
+  sendQuotation: async (id: number): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/quotations/${id}/send`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error("Quotation send failed");
+      const data = await res.json();
+      return data?.success || false;
+    } catch (e) {
+      console.error("Error sending quotation:", e);
+      return false;
+    }
+  },
+
+  getNotifications: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications`);
+      if (!res.ok) throw new Error("Notifications fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching notifications:", e);
+      return [];
+    }
+  },
+
+  markNotificationRead: async (id: number): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
+        method: 'POST'
+      });
+      return await res.json();
+    } catch (e) {
+      console.error("Error marking notification read:", e);
+      return null;
+    }
+  },
+
+  markAllNotificationsRead: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/read-all`, {
+        method: 'POST'
+      });
+      return await res.json();
+    } catch (e) {
+      console.error("Error marking all notifications read:", e);
+      return null;
+    }
+  },
+
+  getKnowledgeFiles: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/files`);
+      if (!res.ok) throw new Error("Knowledge files fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching knowledge files:", e);
+      return [];
+    }
+  },
+
+  uploadKnowledgeFile: async (category: string, file: File): Promise<any> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${API_BASE}/knowledge/upload?category=${category}`, {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error("Knowledge file upload failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error uploading knowledge file:", e);
+      return null;
+    }
+  },
+
+  deleteKnowledgeFile: async (category: string, filename: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/files/${category}/${filename}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error("Knowledge file deletion failed");
+      const data = await res.json();
+      return data?.success || false;
+    } catch (e) {
+      console.error("Error deleting knowledge file:", e);
+      return false;
+    }
+  },
+
+  getAnalytics: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/analytics`);
+      if (!res.ok) throw new Error("Analytics fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching analytics:", e);
+      return null;
+    }
+  },
+
+  getCredentialsDefaults: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/credentials-defaults`);
+      if (!res.ok) throw new Error("Fetch credentials defaults failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching credentials defaults:", e);
+      return { client_id: '', client_secret: '' };
     }
   }
 };

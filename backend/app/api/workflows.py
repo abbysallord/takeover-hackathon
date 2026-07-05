@@ -201,11 +201,16 @@ def execute_demo_run(db: Session = Depends(get_db)) -> WorkflowResponse:
             ).first()
             
             if approval:
-                service.resume_workflow_after_decision(
+                approval.status = "APPROVED"
+                approval.approver = "Demo Auto-Approver"
+                approval.notes = "Approved automatically by end-to-end Demo Mode."
+                approval.decided_at = datetime.now()
+                db.commit()
+                
+                service.handle_approval(
                     db=db,
                     workflow_id=workflow.id,
-                    decision="APPROVED",
-                    approver="Demo Auto-Approver",
+                    approved=True,
                     notes="Approved automatically by end-to-end Demo Mode."
                 )
                 db.refresh(workflow)
@@ -218,3 +223,14 @@ def execute_demo_run(db: Session = Depends(get_db)) -> WorkflowResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to execute end-to-end demo simulation: {str(e)}",
         )
+
+
+@router.get("/workflows/email/{email_id}", response_model=Optional[WorkflowResponse])
+def get_workflow_by_email_id(email_id: int, db: Session = Depends(get_db)) -> Optional[WorkflowResponse]:
+    """Retrieves the workflow associated with a specific email ID, if any exists."""
+    from app.models.models import Workflow
+    workflow = db.query(Workflow).filter(Workflow.email_id == email_id).first()
+    if not workflow:
+        return None
+    populate_workflow_stages(workflow)
+    return workflow

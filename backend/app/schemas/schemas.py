@@ -106,6 +106,7 @@ class ApprovalBase(BaseModel):
     )
     approver: Optional[str] = None
     notes: Optional[str] = None
+    suggested_reply: Optional[str] = None
 
 
 class ApprovalCreate(BaseModel):
@@ -160,6 +161,7 @@ class WorkflowResponse(BaseModel):
     email: Optional[EmailResponse] = None
     steps: List[WorkflowStepResponse] = []
     quotation: Optional[QuotationResponse] = None
+    approvals: List[ApprovalResponse] = []
     completed_stages: List[str] = []
     pending_stages: List[str] = []
 
@@ -244,6 +246,12 @@ class WorkspaceBase(BaseModel):
     gmail_connected: bool = False
     catalog_data: Optional[str] = None
     pricing_data: Optional[str] = None
+    google_redirect_uri: Optional[str] = "http://localhost:8001/workspace/oauth-callback"
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    google_access_token: Optional[str] = None
+    google_refresh_token: Optional[str] = None
+    google_token_expires_at: Optional[datetime] = None
 
 
 class WorkspaceCreate(WorkspaceBase):

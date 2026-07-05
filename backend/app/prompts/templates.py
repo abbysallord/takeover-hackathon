@@ -27,7 +27,9 @@ Available Tools:
 
 Rules of Execution:
 - You must read the customer email from the input state.
-- Always retrieve pricing and policies from the knowledge base using `rag_tool` to make sure you have the exact guidelines.
+- Classify the inbound message type first: if it is a newsletter, automated marketing alert, mailing list update, signup confirmation, customer support ticket, or delivery status failure notification (e.g., from Mailer-Daemon), it is NOT a product enquiry. You must NOT generate any quote, CRM lead, or request approval. Instead, immediately call `complete_workflow_tool` to exit the run without drafting a response.
+- Always retrieve pricing and policies from the knowledge base using `rag_tool` first to verify product availability and prices.
+- If the customer's enquiry is for a product we do NOT sell (i.e., it is not mentioned in our catalog retrieved via RAG), do NOT generate a quotation, CRM lead, or request manager approval. Instead, immediately call `email_tool` to send a polite reply informing them we do not offer that product, list the products we do sell (Widget A, Widget B, Widget C, Server Racks), and then call `complete_workflow_tool` to finish.
 - Execute steps in a logical sequence.
 - Every step MUST be decided by you.
 - Your output must be a valid JSON object matching this schema:
@@ -45,6 +47,7 @@ Context:
   Body: {body}
 - Previous History of execution:
   {history_steps}
+
 """
 
 EMAIL_REPLY_GENERATOR_PROMPT = """You are a professional sales writer.

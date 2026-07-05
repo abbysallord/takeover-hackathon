@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Mail, Database, FileText, CheckCircle2, ArrowRight, ArrowLeft, Building2 } from 'lucide-react';
+import { Sparkles, Mail, Database, FileText, CheckCircle2, ArrowRight, ArrowLeft, Building2, RotateCw } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
 import { mockApi } from '../services/mockApi';
@@ -8,16 +8,138 @@ import { mockApi } from '../services/mockApi';
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [step, setStep] = useState(1);
+  
+  // Load initial values from localStorage to survive OAuth redirect reload
+  const [step, setStep] = useState(() => {
+    const s = localStorage.getItem('onb_step');
+    return s ? parseInt(s) : 1;
+  });
   const [loading, setLoading] = useState(false);
 
-  // Form States
-  const [companyName, setCompanyName] = useState('');
-  const [businessEmail, setBusinessEmail] = useState('');
-  const [industry, setIndustry] = useState('Technology');
+  const [companyName, setCompanyName] = useState(() => localStorage.getItem('onb_companyName') || '');
+  const [businessEmail, setBusinessEmail] = useState(() => localStorage.getItem('onb_businessEmail') || '');
+  const [industry, setIndustry] = useState(() => localStorage.getItem('onb_industry') || 'Technology');
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [catalogData, setCatalogData] = useState('');
-  const [pricingData, setPricingData] = useState('');
+  const [catalogData, setCatalogData] = useState(() => localStorage.getItem('onb_catalogData') || '');
+  const [pricingData, setPricingData] = useState(() => localStorage.getItem('onb_pricingData') || '');
+  const [googleClientId, setGoogleClientId] = useState(() => localStorage.getItem('onb_googleClientId') || '');
+  const [googleClientSecret, setGoogleClientSecret] = useState(() => localStorage.getItem('onb_googleClientSecret') || '');
+  const [googleRedirectUri, setGoogleRedirectUri] = useState(() => localStorage.getItem('onb_googleRedirectUri') || 'http://localhost:8001/workspace/oauth-callback');
+
+  // Handle URL redirect query parameters and load credential defaults on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('gmail_connected');
+    const err = params.get('error');
+
+    if (connected === 'true') {
+      setGmailConnected(true);
+      setStep(2); // Retain on Google step but show connected
+      toast('Gmail connected successfully via Google OAuth!', 'success');
+      // Clean query params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (err) {
+      toast(`OAuth connection failed: ${err}`, 'error');
+      setStep(2);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Fetch credential defaults from backend configuration securely
+    const fetchDefaults = async () => {
+      if (!localStorage.getItem('onb_googleClientId') || !localStorage.getItem('onb_googleClientSecret')) {
+        try {
+          const defaults = await mockApi.getCredentialsDefaults();
+          if (!localStorage.getItem('onb_googleClientId') && defaults.client_id) {
+            setGoogleClientId(defaults.client_id);
+          }
+          if (!localStorage.getItem('onb_googleClientSecret') && defaults.client_secret) {
+            setGoogleClientSecret(defaults.client_secret);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    fetchDefaults();
+  }, []);
+
+  // Sync state variables to localStorage
+  useEffect(() => {
+    localStorage.setItem('onb_step', String(step));
+  }, [step]);
+  useEffect(() => {
+    localStorage.setItem('onb_companyName', companyName);
+  }, [companyName]);
+  useEffect(() => {
+    localStorage.setItem('onb_businessEmail', businessEmail);
+  }, [businessEmail]);
+  useEffect(() => {
+    localStorage.setItem('onb_industry', industry);
+  }, [industry]);
+  useEffect(() => {
+    localStorage.setItem('onb_catalogData', catalogData);
+  }, [catalogData]);
+  useEffect(() => {
+    localStorage.setItem('onb_pricingData', pricingData);
+  }, [pricingData]);
+  useEffect(() => {
+    localStorage.setItem('onb_googleClientId', googleClientId);
+  }, [googleClientId]);
+  useEffect(() => {
+    localStorage.setItem('onb_googleClientSecret', googleClientSecret);
+  }, [googleClientSecret]);
+  useEffect(() => {
+    localStorage.setItem('onb_googleRedirectUri', googleRedirectUri);
+  }, [googleRedirectUri]);
+
+  const clearOnboardingCache = () => {
+    localStorage.removeItem('onb_step');
+    localStorage.removeItem('onb_companyName');
+    localStorage.removeItem('onb_businessEmail');
+    localStorage.removeItem('onb_industry');
+    localStorage.removeItem('onb_catalogData');
+    localStorage.removeItem('onb_pricingData');
+    localStorage.removeItem('onb_googleClientId');
+    localStorage.removeItem('onb_googleClientSecret');
+    localStorage.removeItem('onb_googleRedirectUri');
+  };
+
+  const handleConnectGmail = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        company_name: companyName,
+        business_email: businessEmail,
+        industry: industry,
+        gmail_connected: false,
+        catalog_data: catalogData || '',
+        pricing_data: pricingData || '',
+        google_client_id: googleClientId,
+        google_client_secret: googleClientSecret,
+        google_redirect_uri: googleRedirectUri
+      };
+      
+      const saved = await mockApi.setupWorkspace(payload);
+      if (!saved) {
+        toast('Failed to save credentials before authentication.', 'error');
+        setLoading(false);
+        return;
+      }
+
+      const res = await mockApi.getGoogleAuthUrl();
+      if (res && res.auth_url) {
+        toast('Redirecting to Google OAuth...', 'success');
+        window.location.href = res.auth_url;
+      } else {
+        toast('Failed to generate Google auth URL.', 'error');
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error(e);
+      toast('OAuth routing failed.', 'error');
+      setLoading(false);
+    }
+  };
 
   const loadAcmeCatalog = () => {
     setCatalogData(`# Company Product Catalog
@@ -86,11 +208,15 @@ export function OnboardingPage() {
         industry: industry,
         gmail_connected: gmailConnected,
         catalog_data: catalogData,
-        pricing_data: pricingData
+        pricing_data: pricingData,
+        google_client_id: googleClientId,
+        google_client_secret: googleClientSecret,
+        google_redirect_uri: googleRedirectUri
       };
       
       const res = await mockApi.setupWorkspace(payload);
       if (res) {
+        clearOnboardingCache();
         toast('Workspace initialized successfully!', 'success');
         navigate('/dashboard');
       } else {
@@ -184,26 +310,87 @@ export function OnboardingPage() {
           {step === 2 && (
             <div className="animate-fade-up">
               <h2 className="text-2xl font-bold mb-2">Connect Your Email</h2>
-              <p className="text-xs text-white/50 mb-8 leading-relaxed">Connect your business inbox so the AI Operations Manager can automatically check for incoming enquiries.</p>
+              <p className="text-xs text-white/50 mb-6 leading-relaxed">Connect your business inbox so the AI Operations Manager can automatically check for incoming enquiries.</p>
               
-              <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-6">
-                <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                  <Mail className="w-8 h-8" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-white">Gmail Integration</h3>
-                  <p className="text-[11px] text-white/40 mt-1 max-w-xs leading-relaxed">Connect Gmail to allow the AI to draft and send quotation responses directly from your sales inbox.</p>
+              <div className="flex flex-col gap-5 bg-white/[0.01] border border-white/5 rounded-2xl p-6">
+                <div className="flex flex-col items-center justify-center text-center gap-2 mb-2">
+                  <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                    <Mail className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-white">Gmail API Integration</h3>
+                    <p className="text-[10px] text-white/40 max-w-xs leading-relaxed mt-1">Connect your Gmail to let the agent auto-read inquiries and reply once approved.</p>
+                  </div>
                 </div>
 
-                <button 
-                  onClick={() => {
-                    setGmailConnected(!gmailConnected);
-                    toast(gmailConnected ? 'Gmail connection disabled.' : 'Gmail connected in Sandbox Demo Mode!', 'success');
-                  }}
-                  className={`px-6 py-2.5 rounded-xl text-xs font-semibold transition-all ${gmailConnected ? 'bg-[#28c840]/20 text-[#28c840] border border-[#28c840]/30' : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white'}`}
-                >
-                  {gmailConnected ? 'Connected (Click to Disconnect)' : 'Connect Gmail Inbox'}
-                </button>
+                {/* OAuth credentials configuration */}
+                <div className="flex flex-col gap-4 text-left border-t border-b border-white/5 py-4 my-2">
+                  <div>
+                    <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Google Client ID</label>
+                    <input 
+                      type="text"
+                      placeholder="Paste Client ID"
+                      value={googleClientId}
+                      onChange={e => setGoogleClientId(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Google Client Secret</label>
+                    <input 
+                      type="password"
+                      placeholder="Paste Client Secret"
+                      value={googleClientSecret}
+                      onChange={e => setGoogleClientSecret(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Authorized Redirect URI</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. http://localhost:8001/workspace/oauth-callback"
+                      value={googleRedirectUri}
+                      onChange={e => setGoogleRedirectUri(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
+                    />
+                    <span className="text-[9px] text-white/30 block mt-1 leading-normal">
+                      Must match the Authorized redirect URIs configured in your Google Developer Console OAuth credentials.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  {gmailConnected ? (
+                    <div className="flex flex-col items-center gap-3 w-full">
+                      <div className="flex items-center gap-2 text-xs text-[#28c840] font-medium bg-[#28c840]/10 border border-[#28c840]/25 px-4 py-2 rounded-xl w-full justify-center">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Connected to: {businessEmail || "Gmail Account"}</span>
+                      </div>
+                      <button 
+                        onClick={() => setGmailConnected(false)}
+                        className="text-[10px] text-white/40 hover:text-white/60 underline"
+                      >
+                        Disconnect & Reset connection
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={handleConnectGmail}
+                      disabled={loading}
+                      className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white px-6 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Routing to Google...</span>
+                        </>
+                      ) : (
+                        <span>Connect Gmail Inbox</span>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

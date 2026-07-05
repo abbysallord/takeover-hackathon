@@ -114,6 +114,7 @@ class Approval(Base):
     )  # PENDING, APPROVED, REJECTED
     approver: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    suggested_reply: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
@@ -146,5 +147,11 @@ class Workspace(Base):
     gmail_connected: Mapped[bool] = mapped_column(Boolean, default=False)
     catalog_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pricing_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    google_redirect_uri: Mapped[Optional[str]] = mapped_column(String(255), default="http://localhost:8001/workspace/oauth-callback", nullable=True)
+    google_client_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    google_client_secret: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    google_access_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    google_refresh_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    google_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 

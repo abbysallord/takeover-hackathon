@@ -18,7 +18,11 @@ def seed_database(db: Session) -> None:
 
     Uses dynamic dates to prevent hardcoded time dependency failures.
     """
-    # Safeguard to prevent duplicating seed runs
+    # Safeguard to prevent duplicating seed runs if user is already onboarded
+    from app.models.models import Workspace
+    if db.query(Workspace).first() is not None:
+        return
+
     if db.query(Customer).first() is not None:
         return
 

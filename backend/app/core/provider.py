@@ -63,6 +63,8 @@ class GroqProvider(LLMProvider):
         # If running in mock mode due to a placeholder API key, use the local mock router
         if self.is_mock_key():
             prompt = messages[-1]["content"] if messages else ""
+            if "sales writer" in prompt.lower() or "email reply" in prompt.lower():
+                return self._generate_mock_email_reply(prompt)
             return self._generate_mock_decision(prompt)
 
         try:
@@ -74,7 +76,43 @@ class GroqProvider(LLMProvider):
             # Fallback to local mock orchestrator if the live API call fails (e.g. network/rate limit issues)
             print(f"⚠️ Live Groq call failed ({e}). Falling back to local mock orchestrator.")
             prompt = messages[-1]["content"] if messages else ""
+            if "sales writer" in prompt.lower() or "email reply" in prompt.lower():
+                return self._generate_mock_email_reply(prompt)
             return self._generate_mock_decision(prompt)
+
+    def _generate_mock_email_reply(self, prompt: str) -> str:
+        """Generates a realistic, professional sales email reply based on prompt variables."""
+        customer_name = "Valued Customer"
+        product = "Widget A"
+        quantity = "100"
+        total_amount = "1,000.00"
+        quote_number = "QT-AUTO"
+        
+        import re
+        name_match = re.search(r"Name:\s*([^\n]+)", prompt)
+        if name_match: customer_name = name_match.group(1).strip()
+        
+        prod_match = re.search(r"Product:\s*([^\n]+)", prompt)
+        if prod_match: product = prod_match.group(1).strip()
+        
+        qty_match = re.search(r"Quantity:\s*([^\n]+)", prompt)
+        if qty_match: quantity = qty_match.group(1).strip()
+        
+        amt_match = re.search(r"Total/d* Amount:\s*([^\n]+)", prompt, re.IGNORECASE)
+        if amt_match: total_amount = amt_match.group(1).strip()
+        
+        qn_match = re.search(r"quotation number\s+([^\s\n]+)", prompt, re.IGNORECASE)
+        if qn_match: quote_number = qn_match.group(1).strip()
+        
+        return (
+            f"Hi {customer_name},\n\n"
+            f"Thanks for reaching out! I have reviewed your request and compiled a pricing quotation for you.\n\n"
+            f"We have prepared quotation {quote_number} for {quantity} units of {product}. "
+            f"The total value is ${total_amount} USD.\n\n"
+            f"Please let me know if you have any questions or if you would like me to finalize this order.\n\n"
+            f"Best regards,\n"
+            f"AI Sales Operations Team"
+        )
 
     def _generate_mock_decision(self, prompt: str) -> str:
         """Determines the next workflow step deterministically based on prompt history details."""
@@ -86,14 +124,97 @@ class GroqProvider(LLMProvider):
         if email_idx != -1:
             email_context = prompt_lower[email_idx:]
 
-        # 1. Identify product from email context
+        # Extract sender email address dynamically from prompt context
+        sender_email = "customer@example.com"
+        import re
+        sender_match = re.search(r"sender:\s*([^\n<]*<)?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email_context)
+        if sender_match:
+            sender_email = sender_match.group(2).strip()
+        else:
+            sender_match_global = re.search(r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", prompt)
+            if sender_match_global:
+                sender_email = sender_match_global.group(1).strip()
+
+        # Check if this is an automated/newsletter email or bounce message
+        sender_lower = sender_email.lower()
+        subject_lower = email_context.lower()
+        
+        is_automated = (
+            "noreply" in sender_lower or 
+            "no-reply" in sender_lower or 
+            "updates" in sender_lower or 
+            "news" in sender_lower or 
+            "mailer-daemon" in sender_lower or 
+            "support@" in sender_lower or
+            "team@info" in sender_lower or
+            "bounce" in sender_lower or
+            "delivery status" in subject_lower or
+            "newsletter" in subject_lower or
+            "subscribed" in subject_lower or
+            "starkindustries" in sender_lower or  # Stark Industries is a mock demo seed; ignore if real Gmail pulls it
+            "pinterest" in sender_lower or
+            "unstop" in sender_lower or
+            "codeforces" in sender_lower
+        )
+
+        if is_automated:
+            decision = {
+                "thought": "This is an automated system email, newsletter, or delivery failure warning. No action needed. Marking workflow complete.",
+                "tool": "complete_workflow_tool",
+                "args": {},
+                "confidence": 1.0,
+            }
+            return json.dumps(decision)
+
+        # Determine if the product request is out-of-scope (not in catalog)
+        out_of_scope = True
         product = "Widget A"
+        
+        # Check catalog matches
         if "widget b" in email_context or "widget-b" in email_context:
             product = "Widget B"
+            out_of_scope = False
         elif "widget c" in email_context or "widget-c" in email_context:
             product = "Widget C"
+            out_of_scope = False
         elif "server rack" in email_context or "server-rack" in email_context:
             product = "Server Rack"
+            out_of_scope = False
+        elif "widget a" in email_context or "widget-a" in email_context:
+            product = "Widget A"
+            out_of_scope = False
+
+        # Determine execution history
+        history_part = ""
+        history_idx = prompt.find("Previous History of execution:")
+        if history_idx != -1:
+            history_part = prompt[history_idx:].lower()
+
+        has_email = "- tool: email_tool" in history_part
+
+        # Short-circuit logic for out-of-scope enquiries (e.g. pizzas)
+        if out_of_scope:
+            if not has_email:
+                email_body = (
+                    f"Hello,\n\nThank you for reaching out! We received your enquiry. "
+                    f"However, please note that we do not offer that product. We currently specialize in "
+                    f"Widget A, Widget B, Widget C, and Server Racks. Let us know if we can help you with those!\n\n"
+                    f"Best regards,\nAI Sales Operations Team"
+                )
+                decision = {
+                    "thought": "The requested product is not in our catalog. Sending a polite out-of-scope email listing our actual product offerings.",
+                    "tool": "email_tool",
+                    "args": {"to_email": sender_email, "subject": "Sales Enquiry", "body": email_body},
+                    "confidence": 0.99,
+                }
+            else:
+                decision = {
+                    "thought": "Out-of-scope inquiry handled and customer notified. Ending the workflow execution.",
+                    "tool": "complete_workflow_tool",
+                    "args": {},
+                    "confidence": 1.0,
+                }
+            return json.dumps(decision)
 
         # 2. Identify quantity from email context
         qty = 100
@@ -197,7 +318,7 @@ class GroqProvider(LLMProvider):
                 decision = {
                     "thought": "Sending the approved quotation invoice and email response back to the client.",
                     "tool": "email_tool",
-                    "args": {"to_email": "customer@example.com", "subject": "Sales Quote", "body": email_body},
+                    "args": {"to_email": sender_email, "subject": "Sales Quote", "body": email_body},
                     "confidence": 0.99,
                 }
         elif not has_crm:
@@ -206,7 +327,7 @@ class GroqProvider(LLMProvider):
                 "tool": "crm_tool",
                 "args": {
                     "customer_name": "Valued Customer",
-                    "email": "customer@example.com",
+                    "email": sender_email,
                     "company": "Customer Company",
                     "value": total_amount,
                 },
@@ -217,7 +338,7 @@ class GroqProvider(LLMProvider):
                 "thought": "Scheduling a calendar follow-up item in 3 days to prompt the account rep.",
                 "tool": "calendar_tool",
                 "args": {
-                    "customer_email": "customer@example.com",
+                    "customer_email": sender_email,
                     "title": "Follow up on Quotation",
                     "days_from_now": 3,
                 },

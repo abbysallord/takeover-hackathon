@@ -13,6 +13,7 @@ from app.models.models import (
     WorkflowStep,
     Quotation,
     Approval,
+    Workspace,
 )
 from app.tools.inventory import InventoryTool
 from app.tools.pricing import PricingTool
@@ -23,6 +24,20 @@ from app.tools.notification import NotificationTool
 from app.core.provider import llm_provider
 from app.services.rag_service import rag_service
 from app.prompts.templates import AGENT_ORCHESTRATOR_SYSTEM_PROMPT
+
+
+def clean_html_to_plain_text(html_content: str) -> str:
+    """Strips HTML tags, script, and style blocks to yield clean plain text."""
+    if not html_content:
+        return ""
+    # Remove script and style elements
+    text = re.sub(r"<(script|style)\b[^>]*>([\s\S]*?)<\/\1>", "", html_content, flags=re.I)
+    # Remove all HTML tags
+    text = re.sub(r"<[^>]+>", "", text)
+    # Replace multiple spaces/newlines with single ones
+    text = re.sub(r"\n\s*\n", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
 
 
 class WorkflowEngine:
@@ -148,10 +163,11 @@ class WorkflowEngine:
             history_steps = self._compile_history(db, workflow)
             
             # 2. Format the orchestrator prompt
+            body_text = clean_html_to_plain_text(email.body)
             prompt = AGENT_ORCHESTRATOR_SYSTEM_PROMPT.format(
                 sender=email.sender,
                 subject=email.subject,
-                body=email.body,
+                body=body_text,
                 history_steps=history_steps if history_steps else "None. Starting execution."
             )
             
@@ -281,10 +297,48 @@ class WorkflowEngine:
             quote = db.query(Quotation).filter(Quotation.workflow_id == workflow.id).first()
             quote_id = quote.id if quote else None
             
+            # Generate the suggested email body dynamically using the LLM provider
+            customer_name = "Valued Customer"
+            to_email = workflow.email.sender
+            
+            # Clean customer name extraction
+            if workflow.email.sender:
+                import re
+                name_match = re.match(r"^([^<@]+)", workflow.email.sender)
+                if name_match:
+                    customer_name = name_match.group(1).strip()
+            
+            # Fetch products and quantity details from the quotation
+            product_desc = "products"
+            quantity_desc = 0
+            total_val = amount
+            if quote and quote.items:
+                items = quote.items
+                product_desc = ", ".join([item.get("product", "product") for item in items])
+                quantity_desc = sum([item.get("quantity", 0) for item in items])
+            
+            try:
+                from app.prompts.templates import EMAIL_REPLY_GENERATOR_PROMPT
+                prompt_reply = EMAIL_REPLY_GENERATOR_PROMPT.format(
+                    customer_name=customer_name,
+                    to_email=to_email,
+                    product=product_desc,
+                    quantity=quantity_desc,
+                    total_amount=total_val,
+                    currency="USD",
+                    quote_number=quote_number
+                )
+                suggested_reply = self.llm_provider.generate(prompt_reply, temperature=0.1)
+                suggested_reply = suggested_reply.strip()
+            except Exception as ex:
+                print(f"⚠️ Failed to generate suggested reply for workflow approval: {ex}")
+                suggested_reply = f"Hi {customer_name},\n\nWe have prepared quotation {quote_number} for your request of {product_desc}.\n\nTotal: ${total_val:,.2f}.\n\nBest regards,\nSales Operations Manager"
+            
             approval = Approval(
                 workflow_id=workflow.id,
                 quotation_id=quote_id,
-                status="PENDING"
+                status="PENDING",
+                suggested_reply=suggested_reply
             )
             db.add(approval)
             db.commit()
@@ -303,17 +357,42 @@ class WorkflowEngine:
             
         elif tool_name == "email_tool":
             body = tool_args.get("body", "")
-            to_email = tool_args.get("to_email", workflow.email.sender)
+            
+            # Load the exact approved draft response if available
+            approval = (
+                db.query(Approval)
+                .filter(Approval.workflow_id == workflow.id, Approval.status == "APPROVED")
+                .order_by(Approval.decided_at.desc())
+                .first()
+            )
+            if approval and approval.suggested_reply:
+                body = approval.suggested_reply
+
+            to_email = workflow.email.sender  # Force real sender to prevent placeholder email hallucinations
             subject = tool_args.get("subject", f"RE: {workflow.email.subject}")
             
-            res = self.email_tool.send_email(
-                to_email=to_email,
-                subject=subject,
-                body=body
-            )
+            workspace = db.query(Workspace).first()
+            if workspace and workspace.gmail_connected and workspace.google_refresh_token:
+                try:
+                    from app.services.gmail_sync_service import send_gmail_email_sync
+                    res = send_gmail_email_sync(db, workspace, to_email, subject, body)
+                    print(f"📧 Real Gmail sent to {to_email} successfully!")
+                except Exception as e:
+                    print(f"⚠️ Failed to send real Gmail: {e}. Falling back to simulator.")
+                    res = self.email_tool.send_email(
+                        to_email=to_email,
+                        subject=subject,
+                        body=body
+                    )
+            else:
+                res = self.email_tool.send_email(
+                    to_email=to_email,
+                    subject=subject,
+                    body=body
+                )
             
             outbound = Email(
-                sender=workflow.email.recipient,
+                sender=workflow.email.recipient if workspace else "sales@company.com",
                 recipient=to_email,
                 subject=subject,
                 body=body,
@@ -325,7 +404,7 @@ class WorkflowEngine:
             
         elif tool_name == "crm_tool":
             customer_name = tool_args.get("customer_name", "Valued Customer")
-            email = tool_args.get("email", workflow.email.sender)
+            email = workflow.email.sender  # Force real sender to prevent placeholder email hallucinations
             company = tool_args.get("company", "Company Inc.")
             value = tool_args.get("value", 0.0)
             
@@ -357,7 +436,7 @@ class WorkflowEngine:
             }
             
         elif tool_name == "calendar_tool":
-            customer_email = tool_args.get("customer_email", workflow.email.sender)
+            customer_email = workflow.email.sender  # Force real sender to prevent placeholder email hallucinations
             title = tool_args.get("title", "Follow up call")
             days_from_now = tool_args.get("days_from_now", 3)
             
@@ -417,21 +496,26 @@ class WorkflowEngine:
         """Extracts and parses JSON structures from LLM outputs robustly."""
         clean_text = response_text.strip()
         
-        # 1. Match code blocks first
-        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL)
-        if match:
-            clean_text = match.group(1)
-        else:
-            # 2. Fallback: Search for the first { and last }
-            start = clean_text.find("{")
-            end = clean_text.rfind("}")
-            if start != -1 and end != -1:
-                clean_text = clean_text[start:end+1]
+        # Clean markdown code block markers
+        clean_text = re.sub(r"^```(?:json)?\s*", "", clean_text, flags=re.MULTILINE)
+        clean_text = re.sub(r"\s*```$", "", clean_text, flags=re.MULTILINE)
+        clean_text = clean_text.strip()
+
+        # Find the outermost JSON braces
+        start = clean_text.find("{")
+        end = clean_text.rfind("}")
+        if start != -1 and end != -1:
+            clean_text = clean_text[start:end+1]
                 
         try:
             return json.loads(clean_text)
         except Exception as e:
-            raise ValueError(f"Failed to parse structured JSON from LLM: {response_text}. Error: {e}")
+            try:
+                # Fallback: remove trailing commas before closing braces/brackets
+                fixed_text = re.sub(r",\s*([\]}])", r"\1", clean_text)
+                return json.loads(fixed_text)
+            except Exception:
+                raise ValueError(f"Failed to parse structured JSON from LLM: {response_text}. Error: {e}")
 
     def _map_tool_to_stage(self, tool_name: str) -> str:
         """Maps tool names to standard dashboard timeline stages."""
