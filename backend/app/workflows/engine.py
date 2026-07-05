@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import random
+import re
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.orm import Session
 
@@ -19,13 +20,16 @@ from app.tools.crm import CRMTool
 from app.tools.email import EmailTool
 from app.tools.calendar import CalendarTool
 from app.tools.notification import NotificationTool
-from app.agents.planner import MockAgentPlanner
 from app.core.provider import llm_provider
-from app.workflows.state import STAGES
+from app.services.rag_service import rag_service
+from app.prompts.templates import AGENT_ORCHESTRATOR_SYSTEM_PROMPT
 
 
 class WorkflowEngine:
-    """Orchestrator that handles executing, pausing, and resuming sales operations workflows."""
+    """Autonomous sales workflow execution engine.
+
+    Uses an LLM agentic loop to select tools, observe results, log details, and advance workflow state.
+    """
 
     def __init__(self) -> None:
         self.inventory_tool = InventoryTool()
@@ -34,10 +38,11 @@ class WorkflowEngine:
         self.email_tool = EmailTool()
         self.calendar_tool = CalendarTool()
         self.notification_tool = NotificationTool()
-        self.planner = MockAgentPlanner(provider=llm_provider)
+        self.llm_provider = llm_provider
+        self.rag_service = rag_service
 
     def start_workflow(self, db: Session, email_id: int) -> Workflow:
-        """Initializes a new workflow from an inbound email and triggers execution."""
+        """Initializes a new workflow from an inbound email and runs the agent loop."""
         workflow = Workflow(
             email_id=email_id,
             status="RUNNING",
@@ -47,6 +52,20 @@ class WorkflowEngine:
         db.commit()
         db.refresh(workflow)
 
+        # Log initial inbound email step
+        step_received = WorkflowStep(
+            workflow_id=workflow.id,
+            stage="EMAIL_RECEIVED",
+            status="COMPLETED",
+            input_data={"email_id": email_id},
+            output_data={"status": "RECEIVED", "timestamp": datetime.now().isoformat()},
+            started_at=datetime.now(),
+            completed_at=datetime.now(),
+        )
+        db.add(step_received)
+        db.commit()
+
+        # Execute agent loop
         self.execute(db, workflow)
         return workflow
 
@@ -73,7 +92,7 @@ class WorkflowEngine:
             db.commit()
 
         if approved:
-            # Transition workflow status back to running and advance stage
+            # Transition workflow status back to running and resume loop
             workflow.status = "RUNNING"
             workflow.current_stage = "SEND_REPLY"
             db.commit()
@@ -109,360 +128,335 @@ class WorkflowEngine:
         return workflow
 
     def execute(self, db: Session, workflow: Workflow) -> None:
-        """Executes the workflow stages starting from its current stage."""
-        start_idx = STAGES.index(workflow.current_stage)
-
-        for stage in STAGES[start_idx:]:
-            if workflow.status != "RUNNING":
+        """Runs the autonomous agent loop, calling the LLM to decide on actions and tools."""
+        email = workflow.email
+        
+        # Max steps safety guardrail
+        MAX_STEPS = 12
+        step_count = db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow.id).count()
+        
+        while workflow.status == "RUNNING":
+            if step_count >= MAX_STEPS:
+                self._fail_workflow(
+                    db, 
+                    workflow, 
+                    f"Safety Guardrail: Execution step limit reached ({MAX_STEPS}). Aborting potential loop."
+                )
                 break
-
-            workflow.current_stage = stage
+                
+            # 1. Compile execution history
+            history_steps = self._compile_history(db, workflow)
+            
+            # 2. Format the orchestrator prompt
+            prompt = AGENT_ORCHESTRATOR_SYSTEM_PROMPT.format(
+                sender=email.sender,
+                subject=email.subject,
+                body=email.body,
+                history_steps=history_steps if history_steps else "None. Starting execution."
+            )
+            
+            # 3. Call LLM Provider to determine next action
+            start_time = datetime.now()
+            try:
+                response_text = self.llm_provider.generate(prompt, temperature=0.1)
+                decision = self._parse_decision(response_text)
+            except Exception as e:
+                self._fail_workflow(db, workflow, f"LLM Decision Generation Failed: {str(e)}")
+                break
+                
+            tool_name = decision.get("tool")
+            tool_args = decision.get("args", {})
+            reasoning = decision.get("thought", "")
+            confidence = decision.get("confidence", 1.0)
+            
+            if not tool_name:
+                self._fail_workflow(db, workflow, "LLM returned empty tool selection.")
+                break
+                
+            # 4. Map tool to standard workflow stage
+            stage_name = self._map_tool_to_stage(tool_name)
+            workflow.current_stage = stage_name
             db.commit()
-
-            # Create workflow step tracking record
+            
+            # 5. Record step starting in database
             step = WorkflowStep(
                 workflow_id=workflow.id,
-                stage=stage,
+                stage=stage_name,
                 status="RUNNING",
-                started_at=datetime.now(),
+                input_data={
+                    "reasoning": reasoning,
+                    "tool": tool_name,
+                    "args": tool_args,
+                    "confidence": confidence
+                },
+                started_at=start_time
             )
             db.add(step)
             db.commit()
             db.refresh(step)
-
+            
+            step_count += 1
+            
+            # 6. Execute selected tool
             try:
-                # Run the actual step handler
-                input_data, output_data = self._run_stage(db, workflow, stage)
-
+                tool_output = self._execute_tool(db, workflow, tool_name, tool_args)
+                
+                # Update step to completed
                 step.status = "COMPLETED"
-                step.input_data = input_data
-                step.output_data = output_data
+                step.output_data = {"tool_output": tool_output}
                 step.completed_at = datetime.now()
                 db.commit()
-
-                # If the step was REQUEST_APPROVAL, we pause execution
-                if stage == "REQUEST_APPROVAL":
+                
+                # 7. Check transitions
+                if tool_name == "request_approval_tool":
                     workflow.status = "PENDING_APPROVAL"
                     db.commit()
                     break
-
+                elif tool_name == "complete_workflow_tool":
+                    workflow.status = "COMPLETED"
+                    db.commit()
+                    break
+                    
             except Exception as e:
-                # Set step status to failed and store the error traceback message
                 step.status = "FAILED"
                 step.error_message = str(e)
                 step.completed_at = datetime.now()
-
-                # Set parent workflow status to failed
-                workflow.status = "FAILED"
                 db.commit()
-
-                # Trigger dashboard system alert
-                self.notification_tool.publish_notification(
-                    db=db,
-                    notification_type="SYSTEM_ERROR",
-                    message=f"Workflow #{workflow.id} failed at stage {stage}: {str(e)}",
-                    workflow_id=workflow.id,
-                )
-                db.commit()
+                
+                self._fail_workflow(db, workflow, f"Tool '{tool_name}' failed: {str(e)}")
                 break
 
-    def _run_stage(
-        self, db: Session, workflow: Workflow, stage: str
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """Handles state execution for a specific workflow stage."""
-        email = workflow.email
-
-        if stage == "EMAIL_RECEIVED":
-            inp = {"email_id": email.id}
-            out = {
-                "sender": email.sender,
-                "recipient": email.recipient,
-                "subject": email.subject,
-                "body_snippet": email.body[:150] + "..."
-                if len(email.body) > 150
-                else email.body,
-                "received_at": email.received_at.isoformat(),
-            }
-            return inp, out
-
-        elif stage == "UNDERSTAND_REQUEST":
-            inp = {"email_body": email.body}
-            out = self.planner.plan(email.body)
-            return inp, out
-
-        elif stage == "EXTRACT_INFORMATION":
-            # Retrieve output from UNDERSTAND_REQUEST
-            prev_step = (
-                db.query(WorkflowStep)
-                .filter(
-                    WorkflowStep.workflow_id == workflow.id,
-                    WorkflowStep.stage == "UNDERSTAND_REQUEST",
-                )
-                .first()
-            )
-            planner_out = (
-                prev_step.output_data if (prev_step and prev_step.output_data) else {}
-            )
-            extracted = planner_out.get("extracted_info", {})
-            product = extracted.get("product", "Widget A")
-            quantity = extracted.get("quantity", 100)
-
-            # Customer lookup/creation
-            sender_email = email.sender
-            customer = db.query(Customer).filter(Customer.email == sender_email).first()
-            if not customer:
-                name_part = sender_email.split("@")[0].title()
-                customer = Customer(
-                    name=name_part, email=sender_email, company="Inquired Company Inc."
-                )
-                db.add(customer)
-                db.commit()
-                db.refresh(customer)
-
-            inp = {"planner_output": planner_out, "sender_email": sender_email}
-            out = {
-                "customer_id": customer.id,
-                "customer_name": customer.name,
-                "product": product,
-                "quantity": quantity,
-                "confidence": extracted.get("confidence", 0.95),
-            }
-            return inp, out
-
-        elif stage == "RETRIEVE_PRICING":
-            prev_step = (
-                db.query(WorkflowStep)
-                .filter(
-                    WorkflowStep.workflow_id == workflow.id,
-                    WorkflowStep.stage == "EXTRACT_INFORMATION",
-                )
-                .first()
-            )
-            info = (
-                prev_step.output_data if (prev_step and prev_step.output_data) else {}
-            )
-            product = info.get("product", "Widget A")
-            quantity = info.get("quantity", 100)
-
-            pricing = self.pricing_tool.get_pricing(product, quantity)
-            inp = {"product": product, "quantity": quantity}
-            out = pricing
-            return inp, out
-
-        elif stage == "CHECK_INVENTORY":
-            prev_step = (
-                db.query(WorkflowStep)
-                .filter(
-                    WorkflowStep.workflow_id == workflow.id,
-                    WorkflowStep.stage == "EXTRACT_INFORMATION",
-                )
-                .first()
-            )
-            info = (
-                prev_step.output_data if (prev_step and prev_step.output_data) else {}
-            )
-            product = info.get("product", "Widget A")
-            quantity = info.get("quantity", 100)
-
-            stock = self.inventory_tool.check_stock(product, quantity)
-            inp = {"product": product, "quantity": quantity}
-            out = stock
-            return inp, out
-
-        elif stage == "GENERATE_QUOTATION":
-            # Retrieve pricing result
-            pricing_step = (
-                db.query(WorkflowStep)
-                .filter(
-                    WorkflowStep.workflow_id == workflow.id,
-                    WorkflowStep.stage == "RETRIEVE_PRICING",
-                )
-                .first()
-            )
-            pricing_info = (
-                pricing_step.output_data
-                if (pricing_step and pricing_step.output_data)
-                else {}
-            )
-
+    def _execute_tool(self, db: Session, workflow: Workflow, tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]:
+        """Executes a specific tool action and returns a dictionary response."""
+        if tool_name == "rag_tool":
+            query = tool_args.get("query", "")
+            context = self.rag_service.get_formatted_context(query)
+            return {"context": context}
+            
+        elif tool_name == "inventory_tool":
+            product = tool_args.get("product", "")
+            quantity = tool_args.get("quantity", 1)
+            return self.inventory_tool.check_stock(product, quantity)
+            
+        elif tool_name == "pricing_tool":
+            product = tool_args.get("product", "")
+            quantity = tool_args.get("quantity", 1)
+            return self.pricing_tool.get_pricing(product, quantity)
+            
+        elif tool_name == "generate_quote_tool":
+            product_name = tool_args.get("product_name", "Widget A")
+            quantity = tool_args.get("quantity", 100)
+            unit_price = tool_args.get("unit_price", 10.0)
+            total_amount = tool_args.get("total_amount", 1000.0)
+            
             quote_number = f"QT-2026-{random.randint(10000, 99999)}"
-            total_amount = pricing_info.get("total_amount", 1000.0)
-            product_name = pricing_info.get("product_name", "Widget A")
-            quantity = pricing_info.get("quantity", 100)
-            unit_price = pricing_info.get("unit_price", 10.0)
-
-            items_list = [
-                {
-                    "product": product_name,
-                    "quantity": quantity,
-                    "unit_price": unit_price,
-                    "total": total_amount,
-                }
-            ]
-
+            items_list = [{
+                "product": product_name,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "total": total_amount
+            }]
+            
             quote = Quotation(
                 workflow_id=workflow.id,
                 quote_number=quote_number,
                 total_amount=total_amount,
-                items=items_list,
+                items=items_list
             )
             db.add(quote)
             db.commit()
             db.refresh(quote)
-
-            inp = {"pricing_info": pricing_info}
-            out = {
+            
+            return {
                 "quotation_id": quote.id,
                 "quote_number": quote_number,
                 "total_amount": total_amount,
-                "items": items_list,
+                "items": items_list
             }
-            return inp, out
-
-        elif stage == "REQUEST_APPROVAL":
-            quote = (
-                db.query(Quotation).filter(Quotation.workflow_id == workflow.id).first()
-            )
-            if not quote:
-                raise ValueError("Cannot request approval without a quotation.")
-
+            
+        elif tool_name == "request_approval_tool":
+            quote_number = tool_args.get("quotation_number", "")
+            amount = tool_args.get("amount", 0.0)
+            
+            quote = db.query(Quotation).filter(Quotation.workflow_id == workflow.id).first()
+            quote_id = quote.id if quote else None
+            
             approval = Approval(
                 workflow_id=workflow.id,
-                quotation_id=quote.id,
-                status="PENDING",
+                quotation_id=quote_id,
+                status="PENDING"
             )
             db.add(approval)
             db.commit()
             db.refresh(approval)
-
-            # Send a notification dashboard alert
+            
             self.notification_tool.publish_approval_request(
                 db=db,
                 workflow_id=workflow.id,
-                quotation_number=quote.quote_number,
-                amount=quote.total_amount,
+                quotation_number=quote_number,
+                amount=amount
             )
-
-            inp = {"quotation_id": quote.id}
-            out = {
+            return {
                 "approval_id": approval.id,
-                "status": "PENDING",
-                "quote_number": quote.quote_number,
-                "total_amount": quote.total_amount,
+                "status": "PENDING"
             }
-            return inp, out
-
-        elif stage == "SEND_REPLY":
-            quote = (
-                db.query(Quotation).filter(Quotation.workflow_id == workflow.id).first()
+            
+        elif tool_name == "email_tool":
+            body = tool_args.get("body", "")
+            to_email = tool_args.get("to_email", workflow.email.sender)
+            subject = tool_args.get("subject", f"RE: {workflow.email.subject}")
+            
+            res = self.email_tool.send_email(
+                to_email=to_email,
+                subject=subject,
+                body=body
             )
-            quote_number = quote.quote_number if quote else "QT-UNKNOWN"
-            amount = quote.total_amount if quote else 0.0
-
-            email_body = (
-                f"Hello,\n\nThank you for reaching out to us. We have processed your inquiry "
-                f"and generated quotation {quote_number} for a total of ${amount:,.2f}.\n\n"
-                f"Please review the attached invoice. Our standard delivery takes 2 business days.\n\n"
-                f"Best regards,\nAI Sales Operations Team"
-            )
-
-            dispatch = self.email_tool.send_email(
-                to_email=email.sender,
-                subject=f"RE: {email.subject}",
-                body=email_body,
-                attachment_name=f"{quote_number}.pdf",
-            )
-
-            # Log outbound email record
+            
             outbound = Email(
-                sender=email.recipient,
-                recipient=email.sender,
-                subject=f"RE: {email.subject}",
-                body=email_body,
-                direction="OUTBOUND",
+                sender=workflow.email.recipient,
+                recipient=to_email,
+                subject=subject,
+                body=body,
+                direction="OUTBOUND"
             )
             db.add(outbound)
             db.commit()
-
-            inp = {"recipient": email.sender, "quote_number": quote_number}
-            out = {
-                "outbound_email_id": outbound.id,
-                "message_id": dispatch.get("message_id"),
-                "status": "SENT",
-            }
-            return inp, out
-
-        elif stage == "CREATE_LEAD":
-            info_step = (
-                db.query(WorkflowStep)
-                .filter(
-                    WorkflowStep.workflow_id == workflow.id,
-                    WorkflowStep.stage == "EXTRACT_INFORMATION",
-                )
-                .first()
-            )
-            info = (
-                info_step.output_data if (info_step and info_step.output_data) else {}
-            )
-            customer_id = info.get("customer_id")
-            customer_name = info.get("customer_name", "Valued Client")
-
-            quote = (
-                db.query(Quotation).filter(Quotation.workflow_id == workflow.id).first()
-            )
-            total_amount = quote.total_amount if quote else 0.0
-
-            customer = db.query(Customer).filter(Customer.id == customer_id).first()
-            company = customer.company if customer else "Inquired Company"
-            cust_email = customer.email if customer else email.sender
-
-            # Register in CRM
+            return res
+            
+        elif tool_name == "crm_tool":
+            customer_name = tool_args.get("customer_name", "Valued Customer")
+            email = tool_args.get("email", workflow.email.sender)
+            company = tool_args.get("company", "Company Inc.")
+            value = tool_args.get("value", 0.0)
+            
+            customer = db.query(Customer).filter(Customer.email == email).first()
+            if not customer:
+                customer = Customer(name=customer_name, email=email, company=company)
+                db.add(customer)
+                db.commit()
+                db.refresh(customer)
+                
             crm_res = self.crm_tool.create_or_update_lead(
                 customer_name=customer_name,
-                email=cust_email,
+                email=email,
                 company=company,
-                value=total_amount,
+                value=value
             )
-
-            # Insert lead into local DB
+            
             lead = Lead(
-                customer_id=customer_id, status="QUALIFIED_LEAD", value=total_amount
+                customer_id=customer.id,
+                status="QUALIFIED_LEAD",
+                value=value
             )
             db.add(lead)
             db.commit()
-
-            inp = {"customer_id": customer_id, "deal_value": total_amount}
-            out = {"lead_id": lead.id, "crm_sync": crm_res}
-            return inp, out
-
-        elif stage == "SCHEDULE_FOLLOWUP":
-            event = self.calendar_tool.schedule_followup(
-                customer_email=email.sender,
-                title=f"Follow up on Quote - {email.sender}",
-            )
-            inp = {"customer_email": email.sender}
-            out = event
-            return inp, out
-
-        elif stage == "COMPLETED":
-            inp = {}
-            out = {
-                "status": "COMPLETED",
-                "completed_at": datetime.now().isoformat() + "Z",
-                "summary": "Completed sales operations workflow end-to-end.",
+            
+            return {
+                "lead_id": lead.id,
+                "crm_sync": crm_res
             }
+            
+        elif tool_name == "calendar_tool":
+            customer_email = tool_args.get("customer_email", workflow.email.sender)
+            title = tool_args.get("title", "Follow up call")
+            days_from_now = tool_args.get("days_from_now", 3)
+            
+            return self.calendar_tool.schedule_followup(customer_email, title, days_from_now)
+            
+        elif tool_name == "complete_workflow_tool":
+            return {"status": "SUCCESS", "message": "Workflow marked completed successfully."}
+            
+        else:
+            raise ValueError(f"Unknown tool name: {tool_name}")
 
-            workflow.status = "COMPLETED"
-            db.commit()
-
-            # Publish completed workflow success notification
-            self.notification_tool.publish_notification(
-                db=db,
-                notification_type="EMAIL_RECEIVED",
-                message=f"Workflow #{workflow.id} completed for {email.sender}.",
-                workflow_id=workflow.id,
+    def _compile_history(self, db: Session, workflow: Workflow) -> str:
+        """Loads previous steps and formats them as a readable string history for the LLM context."""
+        history = ""
+        past_steps = (
+            db.query(WorkflowStep)
+            .filter(WorkflowStep.workflow_id == workflow.id)
+            .order_by(WorkflowStep.started_at.asc())
+            .all()
+        )
+        
+        for step in past_steps:
+            if step.status == "COMPLETED":
+                inp = step.input_data or {}
+                out = step.output_data or {}
+                
+                tool = inp.get("tool", step.stage)
+                reasoning = inp.get("reasoning", "")
+                args = inp.get("args", {})
+                result = out.get("tool_output", {})
+                
+                history += (
+                    f"- Tool: {tool}\n"
+                    f"  Reasoning: {reasoning}\n"
+                    f"  Arguments: {args}\n"
+                    f"  Result: {result}\n\n"
+                )
+                
+        # Append manager approval decisions if they exist
+        approval = (
+            db.query(Approval)
+            .filter(Approval.workflow_id == workflow.id)
+            .order_by(Approval.created_at.desc())
+            .first()
+        )
+        if approval and approval.status != "PENDING":
+            history += (
+                f"- Action: Manager Review\n"
+                f"  Result: {approval.status}\n"
+                f"  Notes: {approval.notes or 'None'}\n"
+                f"  Decided At: {approval.decided_at.isoformat() if approval.decided_at else 'unknown'}\n\n"
             )
-            db.commit()
-            return inp, out
+            
+        return history
 
-        return {}, {}
+    def _parse_decision(self, response_text: str) -> Dict[str, Any]:
+        """Extracts and parses JSON structures from LLM outputs robustly."""
+        clean_text = response_text.strip()
+        
+        # 1. Match code blocks first
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL)
+        if match:
+            clean_text = match.group(1)
+        else:
+            # 2. Fallback: Search for the first { and last }
+            start = clean_text.find("{")
+            end = clean_text.rfind("}")
+            if start != -1 and end != -1:
+                clean_text = clean_text[start:end+1]
+                
+        try:
+            return json.loads(clean_text)
+        except Exception as e:
+            raise ValueError(f"Failed to parse structured JSON from LLM: {response_text}. Error: {e}")
+
+    def _map_tool_to_stage(self, tool_name: str) -> str:
+        """Maps tool names to standard dashboard timeline stages."""
+        mapping = {
+            "rag_tool": "RETRIEVE_PRICING",
+            "inventory_tool": "CHECK_INVENTORY",
+            "pricing_tool": "RETRIEVE_PRICING",
+            "generate_quote_tool": "GENERATE_QUOTATION",
+            "request_approval_tool": "REQUEST_APPROVAL",
+            "email_tool": "SEND_REPLY",
+            "crm_tool": "CREATE_LEAD",
+            "calendar_tool": "SCHEDULE_FOLLOWUP",
+            "complete_workflow_tool": "COMPLETED",
+        }
+        return mapping.get(tool_name, "UNDERSTAND_REQUEST")
+
+    def _fail_workflow(self, db: Session, workflow: Workflow, error_message: str) -> None:
+        """Transitions parent workflow status to FAILED and publishes a notification alert."""
+        workflow.status = "FAILED"
+        db.commit()
+        
+        self.notification_tool.publish_notification(
+            db=db,
+            notification_type="SYSTEM_ERROR",
+            message=error_message,
+            workflow_id=workflow.id
+        )
+        db.commit()

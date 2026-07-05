@@ -50,21 +50,22 @@ def main():
     if os.path.exists("takeover_test.db"):
         os.remove("takeover_test.db")
         
+    server_log = open("test_server.log", "w")
     server_process = subprocess.Popen(
         ["venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(PORT)],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=server_log,
+        stderr=server_log,
         env=env
     )
     
     # Wait for server to boot up
-    time.sleep(3)
+    time.sleep(5)
     
     if server_process.poll() is not None:
         print("\033[91m[ERROR] Failed to start backend server. Make sure dependencies are installed and port 8009 is free.\033[0m")
         # print stderr
-        stderr = server_process.stderr.read().decode("utf-8")
-        print(stderr)
+        with open("test_server.log", "r") as f:
+            print(f.read())
         sys.exit(1)
         
     print_result("Server Startup", True, f"PID: {server_process.pid} listening on {BASE_URL}")
@@ -153,9 +154,16 @@ def main():
         server_process.terminate()
         server_process.wait()
         
-        # Clean test db
+        try:
+            server_log.close()
+        except Exception:
+            pass
+            
+        # Clean test files
         if os.path.exists("takeover_test.db"):
             os.remove("takeover_test.db")
+        if os.path.exists("test_server.log"):
+            os.remove("test_server.log")
             
         print("Test server stopped and database removed.")
         print("=" * 80)
