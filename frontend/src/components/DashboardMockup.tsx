@@ -31,7 +31,7 @@ export function DashboardMockup() {
         <div className="flex-1 flex justify-center">
           <div className="bg-[#1a1a1c] rounded-md px-6 py-1 flex items-center gap-2">
             <Monitor className="w-3 h-3 text-white/40" />
-            <span className="text-[10px] text-white/60">hackarena.com</span>
+            <span className="text-[10px] text-white/60">flow.hackarena.dev</span>
           </div>
         </div>
 
