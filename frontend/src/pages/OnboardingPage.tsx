@@ -46,18 +46,19 @@ export function OnboardingPage() {
 
     // Fetch credential defaults from backend configuration securely
     const fetchDefaults = async () => {
-      if (!localStorage.getItem('onb_googleClientId') || !localStorage.getItem('onb_googleClientSecret')) {
-        try {
-          const defaults = await mockApi.getCredentialsDefaults();
-          if (!localStorage.getItem('onb_googleClientId') && defaults.client_id) {
-            setGoogleClientId(defaults.client_id);
-          }
-          if (!localStorage.getItem('onb_googleClientSecret') && defaults.client_secret) {
-            setGoogleClientSecret(defaults.client_secret);
-          }
-        } catch (e) {
-          console.error(e);
+      try {
+        const defaults = await mockApi.getCredentialsDefaults();
+        if (!localStorage.getItem('onb_googleClientId') && defaults.client_id) {
+          setGoogleClientId(defaults.client_id);
         }
+        if (!localStorage.getItem('onb_googleClientSecret') && defaults.client_secret) {
+          setGoogleClientSecret(defaults.client_secret);
+        }
+        if ((!localStorage.getItem('onb_googleRedirectUri') || localStorage.getItem('onb_googleRedirectUri')?.includes('localhost')) && defaults.redirect_uri) {
+          setGoogleRedirectUri(defaults.redirect_uri);
+        }
+      } catch (e) {
+        console.error(e);
       }
     };
     fetchDefaults();

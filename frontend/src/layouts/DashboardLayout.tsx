@@ -97,6 +97,14 @@ export function DashboardLayout() {
                 if (!ok) return;
                 try {
                   await mockApi.resetWorkspace();
+                  localStorage.removeItem('onb_companyName');
+                  localStorage.removeItem('onb_businessEmail');
+                  localStorage.removeItem('onb_industry');
+                  localStorage.removeItem('onb_catalogData');
+                  localStorage.removeItem('onb_pricingData');
+                  localStorage.removeItem('onb_googleClientId');
+                  localStorage.removeItem('onb_googleClientSecret');
+                  localStorage.removeItem('onb_googleRedirectUri');
                   window.location.href = '/onboarding';
                 } catch (e) {
                   console.error(e);

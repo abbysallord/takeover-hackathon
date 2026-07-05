@@ -3,7 +3,7 @@ import os
 import traceback
 import httpx
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -203,9 +203,13 @@ def reset_workspace(db: Session = Depends(get_db)):
 
 
 @router.get("/workspace/credentials-defaults")
-def get_credentials_defaults():
-    """Returns the configured client ID and secret defaults from settings securely."""
+def get_credentials_defaults(request: Request):
+    """Returns the configured client ID, secret, and dynamic redirect URI defaults."""
+    # Determine the backend base URL dynamically from request headers
+    base_url = str(request.base_url).rstrip('/')
+    default_redirect = f"{base_url}/workspace/oauth-callback"
     return {
         "client_id": settings.GOOGLE_CLIENT_ID or "",
-        "client_secret": settings.GOOGLE_CLIENT_SECRET or ""
+        "client_secret": settings.GOOGLE_CLIENT_SECRET or "",
+        "redirect_uri": default_redirect
     }
