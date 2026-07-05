@@ -17,6 +17,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 
 function MainRoutes() {
   const location = useLocation();
@@ -25,6 +26,7 @@ function MainRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Hero />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/toolkit" element={<ToolkitPage />} />
         

@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Grid, CheckCircle2, RotateCw, Sparkles, Zap } from 'lucide-react';
+import { Grid, CheckCircle2, RotateCw, Sparkles, Zap, Mail } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
 
 export function DashboardOverview() {
   const [stats, setStats] = useState<any>(null);
   const [workflows, setWorkflows] = useState<any[]>([]);
+  const [companyName, setCompanyName] = useState('Acme Electronics');
+  const [expandedStepId, setExpandedStepId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch mock data from our API service
+    mockApi.getWorkspace().then(workspace => {
+      if (workspace) setCompanyName(workspace.company_name);
+    });
+    // Fetch data from our API service
     Promise.all([
       mockApi.getStats().then(setStats),
       mockApi.getWorkflows().then(setWorkflows)
@@ -26,41 +31,63 @@ export function DashboardOverview() {
               <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-medium text-white">Acme Electronics</h2>
+              <h2 className="text-lg font-medium text-white">{companyName}</h2>
               <p className="text-xs text-white/45 mt-0.5">AI Sales Operations Workspace</p>
             </div>
           </div>
-          <button 
-            onClick={async () => {
-              setIsLoading(true);
-              await mockApi.simulateWorkflow();
-              // Refresh statistics and pipeline
-              Promise.all([
-                mockApi.getStats().then(setStats),
-                mockApi.getWorkflows().then(setWorkflows)
-              ]).then(() => setIsLoading(false));
-            }}
-            className="flex items-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] px-4 py-2 rounded-lg transition-colors text-white text-xs font-medium shadow-md shadow-blue-500/10"
-          >
-            <Sparkles className="w-4 h-4" />
-            Run Workflow
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={async () => {
+                setIsLoading(true);
+                await mockApi.runDemoMode();
+                // Refresh statistics and pipeline
+                Promise.all([
+                  mockApi.getStats().then(setStats),
+                  mockApi.getWorkflows().then(setWorkflows)
+                ]).then(() => setIsLoading(false));
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-[#28c840] hover:opacity-95 px-4 py-2 rounded-lg transition-all text-white text-xs font-semibold shadow-md shadow-blue-500/20"
+            >
+              <Sparkles className="w-4 h-4" />
+              Run Demo Mode
+            </button>
+            <button 
+              onClick={async () => {
+                setIsLoading(true);
+                await mockApi.simulateWorkflow();
+                // Refresh statistics and pipeline
+                Promise.all([
+                  mockApi.getStats().then(setStats),
+                  mockApi.getWorkflows().then(setWorkflows)
+                ]).then(() => setIsLoading(false));
+              }}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-4 py-2 rounded-lg transition-colors text-white text-xs font-medium border border-white/5"
+            >
+              <Mail className="w-4 h-4" />
+              Simulate New Email
+            </button>
+          </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-white/5 rounded-2xl bg-white/[0.03] ring-1 ring-white/5 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'EMAILS TODAY', value: stats?.emailsToday },
-            { label: 'ACTIVE LEADS', value: stats?.activeLeads },
+            { label: 'EMAILS RECEIVED', value: stats?.emailsReceived },
+            { label: 'ACTIVE WORKFLOWS', value: stats?.activeWorkflows },
+            { label: 'PENDING APPROVALS', value: stats?.pendingApprovals },
+            { label: 'COMPLETED WORKFLOWS', value: stats?.completedWorkflows },
             { label: 'QUOTES GENERATED', value: stats?.quotesGenerated },
-            { label: 'REVENUE PIPELINE', value: stats?.revenuePipeline }
+            { label: 'REVENUE PIPELINE', value: stats?.revenuePipeline },
+            { label: 'AVG RESPONSE TIME', value: stats?.avgResponseTime },
+            { label: 'EST. TIME SAVED', value: stats?.timeSaved },
+            { label: 'AI CONFIDENCE', value: stats?.aiConfidence }
           ].map((stat, i) => (
-            <div key={i} className="px-6 py-5 flex flex-col justify-center">
-              <div className="text-[10px] tracking-wider text-white/35 font-semibold mb-1.5">{stat.label}</div>
+            <div key={i} className="px-5 py-4 flex flex-col justify-center rounded-2xl bg-white/[0.02] ring-1 ring-white/5">
+              <div className="text-[9px] tracking-wider text-white/35 font-semibold mb-1">{stat.label}</div>
               {isLoading ? (
-                <div className="h-8 w-20 bg-white/10 rounded animate-pulse" />
+                <div className="h-6 w-20 bg-white/10 rounded animate-pulse mt-1" />
               ) : (
-                <div className="text-2xl font-medium text-white">{stat.value}</div>
+                <div className="text-lg font-medium text-white mt-0.5">{stat.value}</div>
               )}
             </div>
           ))}
@@ -105,14 +132,44 @@ export function DashboardOverview() {
                   ))
                 ) : (
                   workflows.map((row) => (
-                    <tr key={row.id} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
-                      <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
-                      <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
-                        {row.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : (row.status === 'Processing' ? <RotateCw className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-white/20 ml-1" />)}
-                        {row.status}
-                      </td>
-                    </tr>
+                    <>
+                      <tr 
+                        key={row.id} 
+                        onClick={() => setExpandedStepId(expandedStepId === row.id ? null : row.id)}
+                        className="hover:bg-white/[0.02] cursor-pointer transition-colors group"
+                      >
+                        <td className="px-4 py-3.5 text-xs text-white/80 border-b border-white/5 group-last:border-0">{row.step}</td>
+                        <td className="px-4 py-3.5 text-[11px] text-white/50 border-b border-white/5 group-last:border-0">{row.desc}</td>
+                        <td className={`px-4 py-3.5 text-[11px] font-medium border-b border-white/5 group-last:border-0 flex items-center gap-2 ${row.color}`}>
+                          {row.status === 'Completed' ? <CheckCircle2 className="w-4 h-4" /> : (row.status === 'Processing' ? <RotateCw className="w-4 h-4 animate-spin" /> : <div className="w-2 h-2 rounded-full bg-white/20 ml-1" />)}
+                          {row.status}
+                        </td>
+                      </tr>
+                      {expandedStepId === row.id && (
+                        <tr key={`expand-${row.id}`}>
+                          <td colSpan={3} className="px-6 py-4 bg-white/[0.01] border-b border-white/5">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-xs">
+                              <div>
+                                <span className="text-[10px] text-white/30 uppercase block font-semibold">Tool Activated</span>
+                                <span className="text-white/80 font-mono mt-1 block bg-white/5 px-2 py-1 rounded w-fit">{row.tool}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-white/30 uppercase block font-semibold">Execution Time</span>
+                                <span className="text-white/80 mt-1 block">{row.duration}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-white/30 uppercase block font-semibold">AI Confidence</span>
+                                <span className="text-white/80 mt-1 block">{row.confidence}</span>
+                              </div>
+                              <div className="col-span-2 md:col-span-4 mt-2">
+                                <span className="text-[10px] text-white/30 uppercase block font-semibold">Agent Reasoning & Context</span>
+                                <p className="text-white/70 mt-1 text-[11px] leading-relaxed italic">"{row.reasoning}"</p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))
                 )}
                 {!isLoading && workflows.length === 0 && (

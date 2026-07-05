@@ -1,14 +1,30 @@
-import { useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Grid, LayoutDashboard, Inbox, UserPlus, Users, FileText, 
   CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { CommandPalette } from '../components/ui/CommandPalette';
+import { mockApi } from '../services/mockApi';
 
 export function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [companyName, setCompanyName] = useState('Acme Electronics');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    mockApi.getWorkspace().then(workspace => {
+      if (!workspace) {
+        navigate('/onboarding');
+      } else {
+        setCompanyName(workspace.company_name);
+      }
+    }).catch(e => {
+      console.error(e);
+      navigate('/onboarding');
+    });
+  }, [navigate]);
   
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -52,9 +68,9 @@ export function DashboardLayout() {
           
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center text-xs font-bold text-white">
-              A
+              {companyName ? companyName.charAt(0).toUpperCase() : 'W'}
             </div>
-            <span className="text-xs text-white/80 font-medium">Acme Electronics</span>
+            <span className="text-xs text-white/80 font-medium">{companyName}</span>
           </div>
 
           <div className="flex flex-col gap-1 mt-2">

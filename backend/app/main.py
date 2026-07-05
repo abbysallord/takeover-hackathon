@@ -12,6 +12,7 @@ from app.api import (
     workflows_router,
     approvals_router,
     analytics_router,
+    workspace_router,
 )
 
 
@@ -54,3 +55,4 @@ app.include_router(emails_router)
 app.include_router(workflows_router)
 app.include_router(approvals_router)
 app.include_router(analytics_router)
+app.include_router(workspace_router)

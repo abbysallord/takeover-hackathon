@@ -134,3 +134,17 @@ class Notification(Base):
     message: Mapped[str] = mapped_column(Text)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(255))
+    business_email: Mapped[str] = mapped_column(String(255))
+    industry: Mapped[str] = mapped_column(String(100))
+    gmail_connected: Mapped[bool] = mapped_column(Boolean, default=False)
+    catalog_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pricing_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+

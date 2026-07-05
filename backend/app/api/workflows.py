@@ -176,3 +176,45 @@ def get_workflow_reasoning(id: int, db: Session = Depends(get_db)) -> List[StepR
                 )
             )
     return reasonings
+
+
+@router.post("/workflows/demo-run", response_model=WorkflowResponse)
+def execute_demo_run(db: Session = Depends(get_db)) -> WorkflowResponse:
+    """Executes a full end-to-end demo simulation: email -> RAG -> stock check -> quote -> approval gate -> auto-approving -> dispatch -> completed."""
+    service = WorkflowService()
+    try:
+        # 1. Simulate customer email inquiry
+        workflow = service.process_new_email(
+            db=db,
+            sender="tony@starkindustries.com",
+            recipient="sales@company.com",
+            subject="Requesting 120 units of Widget-B",
+            body="Hi, Stark Industries needs to place a bulk order of 120 units of Widget B. Can you provide price quotes?"
+        )
+        
+        # 2. Automatically approve the quotation if paused
+        if workflow.status == "PENDING_APPROVAL":
+            from app.models.models import Approval
+            approval = db.query(Approval).filter(
+                Approval.workflow_id == workflow.id, 
+                Approval.status == "PENDING"
+            ).first()
+            
+            if approval:
+                service.resume_workflow_after_decision(
+                    db=db,
+                    workflow_id=workflow.id,
+                    decision="APPROVED",
+                    approver="Demo Auto-Approver",
+                    notes="Approved automatically by end-to-end Demo Mode."
+                )
+                db.refresh(workflow)
+                
+        populate_workflow_stages(workflow)
+        return workflow
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute end-to-end demo simulation: {str(e)}",
+        )

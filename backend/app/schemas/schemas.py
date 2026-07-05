@@ -190,6 +190,11 @@ class DashboardStats(BaseModel):
     total_leads: int
     total_revenue: float
     unread_notifications: int
+    emails_received: int
+    quotes_generated: int
+    avg_response_time_seconds: float
+    estimated_time_saved_minutes: float
+    avg_ai_confidence: float
 
 
 class DashboardResponse(BaseModel):
@@ -229,3 +234,26 @@ class AnalyticsResponse(BaseModel):
     avg_stage_durations: List[StageDuration]
     daily_volumes: List[DailyVolume]
     top_products: List[ProductVolume]
+
+
+# --- Workspace Schemas ---
+class WorkspaceBase(BaseModel):
+    company_name: str
+    business_email: str
+    industry: str
+    gmail_connected: bool = False
+    catalog_data: Optional[str] = None
+    pricing_data: Optional[str] = None
+
+
+class WorkspaceCreate(WorkspaceBase):
+    pass
+
+
+class WorkspaceResponse(WorkspaceBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
