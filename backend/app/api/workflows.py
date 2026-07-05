@@ -1,26 +1,76 @@
-from typing import List
+from datetime import datetime
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+import traceback
+
 from app.models.database import get_db
-from app.schemas.schemas import WorkflowResponse, EmailCreate
+from app.schemas.schemas import WorkflowResponse, EmailCreate, WorkflowStepResponse
 from app.repositories.repos import WorkflowRepository
 from app.services.workflow_service import WorkflowService
 
 router = APIRouter(tags=["Workflows"])
 
 
+# --- Additional API Schemas for Observability ---
+class TraceStepResponse(BaseModel):
+    stage: str
+    status: str
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    duration_seconds: float
+    reasoning: str
+    tool: str
+    args: Dict[str, Any]
+    output: Dict[str, Any]
+    confidence: float
+
+
+class StepReasoningResponse(BaseModel):
+    stage: str
+    reasoning: str
+    confidence: float
+
+
+def populate_workflow_stages(workflow: Any) -> Any:
+    """Helper to compute completed and pending stages in order for a workflow."""
+    ALL_STAGES = [
+        "EMAIL_RECEIVED",
+        "RETRIEVE_PRICING",
+        "CHECK_INVENTORY",
+        "GENERATE_QUOTATION",
+        "REQUEST_APPROVAL",
+        "SEND_REPLY",
+        "CREATE_LEAD",
+        "SCHEDULE_FOLLOWUP",
+        "COMPLETED"
+    ]
+    completed = [step.stage for step in workflow.steps if step.status == "COMPLETED"]
+    # Maintain the logical execution order for UI progression
+    completed_stages = [stage for stage in ALL_STAGES if stage in completed]
+    pending_stages = [stage for stage in ALL_STAGES if stage not in completed_stages]
+    
+    workflow.completed_stages = completed_stages
+    workflow.pending_stages = pending_stages
+    return workflow
+
+
 @router.get("/workflows", response_model=List[WorkflowResponse])
 def get_workflows(
     limit: int = 100, db: Session = Depends(get_db)
 ) -> List[WorkflowResponse]:
-    """Retrieves all workflows, ordered by creation date."""
+    """Retrieves all workflows, complete with dynamic completed/pending timeline progress."""
     repo = WorkflowRepository(db)
-    return repo.get_all(limit=limit)
+    workflows = repo.get_all(limit=limit)
+    for wf in workflows:
+        populate_workflow_stages(wf)
+    return workflows
 
 
 @router.get("/workflows/{id}", response_model=WorkflowResponse)
 def get_workflow_by_id(id: int, db: Session = Depends(get_db)) -> WorkflowResponse:
-    """Retrieves details of a specific workflow, including history stages, emails, and quotes."""
+    """Retrieves details of a specific workflow, complete with dynamic completed/pending timeline progress."""
     repo = WorkflowRepository(db)
     workflow = repo.get_by_id(id)
     if not workflow:
@@ -28,6 +78,7 @@ def get_workflow_by_id(id: int, db: Session = Depends(get_db)) -> WorkflowRespon
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workflow with ID {id} not found.",
         )
+    populate_workflow_stages(workflow)
     return workflow
 
 
@@ -49,11 +100,79 @@ def simulate_workflow(
             subject=email_data.subject,
             body=email_data.body,
         )
+        populate_workflow_stages(workflow)
         return workflow
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to execute workflow simulation: {str(e)}",
         )
+
+
+@router.get("/workflows/{id}/trace", response_model=List[TraceStepResponse])
+def get_workflow_trace(id: int, db: Session = Depends(get_db)) -> List[TraceStepResponse]:
+    """Exposes a detailed machine-readable trace logs timeline of each tool executed in the workflow."""
+    repo = WorkflowRepository(db)
+    workflow = repo.get_by_id(id)
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow with ID {id} not found.",
+        )
+
+    trace_steps = []
+    for step in workflow.steps:
+        # Check inputs and outputs safely
+        inp = step.input_data or {}
+        out = step.output_data or {}
+
+        # Calculate time durations
+        if step.completed_at:
+            duration = (step.completed_at - step.started_at).total_seconds()
+        else:
+            duration = (datetime.now() - step.started_at).total_seconds()
+
+        trace_steps.append(
+            TraceStepResponse(
+                stage=step.stage,
+                status=step.status,
+                started_at=step.started_at,
+                completed_at=step.completed_at,
+                duration_seconds=round(duration, 3),
+                reasoning=inp.get("reasoning", ""),
+                tool=inp.get("tool", step.stage),
+                args=inp.get("args", {}),
+                output=out.get("tool_output", {}),
+                confidence=inp.get("confidence", 1.0)
+            )
+        )
+    return trace_steps
+
+
+@router.get("/workflows/{id}/reasoning", response_model=List[StepReasoningResponse])
+def get_workflow_reasoning(id: int, db: Session = Depends(get_db)) -> List[StepReasoningResponse]:
+    """Exposes the AI reasoning thought trace and confidence level for each stage in the workflow."""
+    repo = WorkflowRepository(db)
+    workflow = repo.get_by_id(id)
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow with ID {id} not found.",
+        )
+
+    reasonings = []
+    for step in workflow.steps:
+        inp = step.input_data or {}
+        reasoning = inp.get("reasoning")
+        
+        # Only list steps that have actual reasoning logged (e.g. LLM tool decisions)
+        if reasoning:
+            reasonings.append(
+                StepReasoningResponse(
+                    stage=step.stage,
+                    reasoning=reasoning,
+                    confidence=inp.get("confidence", 1.0)
+                )
+            )
+    return reasonings

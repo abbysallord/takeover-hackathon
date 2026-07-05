@@ -160,6 +160,8 @@ class WorkflowResponse(BaseModel):
     email: Optional[EmailResponse] = None
     steps: List[WorkflowStepResponse] = []
     quotation: Optional[QuotationResponse] = None
+    completed_stages: List[str] = []
+    pending_stages: List[str] = []
 
     class Config:
         from_attributes = True

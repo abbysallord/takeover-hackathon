@@ -136,10 +136,20 @@ def main():
             wf_final_ok = status == 200 and workflow_final.get("status") == "COMPLETED"
             print_result("Verify Workflow Completed", wf_final_ok, f"Final Status: {workflow_final.get('status')}")
             
+            # 8b. Verify Workflow Trace
+            status, trace = make_request(f"/workflows/{wf_id}/trace")
+            trace_ok = status == 200 and len(trace) > 0
+            print_result("GET /workflows/{id}/trace", trace_ok, f"Steps in trace: {len(trace)}")
+            
+            # 8c. Verify Workflow Reasoning
+            status, reasoning = make_request(f"/workflows/{wf_id}/reasoning")
+            reasoning_ok = status == 200 and len(reasoning) > 0
+            print_result("GET /workflows/{id}/reasoning", reasoning_ok, f"Steps with reasoning: {len(reasoning)}")
+            
             # Print steps of resumed workflow
             final_steps = workflow_final.get("steps", [])
             print(f"      -> Final steps executed after approval:")
-            for step in final_steps[7:]:
+            for step in final_steps[6:]:
                 print(f"         - {step['stage']:<25} : {step['status']}")
 
         # 9. Test Analytics Output

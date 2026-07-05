@@ -40,7 +40,12 @@ def get_dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
     )
 
     # Fetch recent history items
+    from app.api.workflows import populate_workflow_stages
+    
     recent_workflows = wf_repo.get_recent(limit=5)
+    for wf in recent_workflows:
+        populate_workflow_stages(wf)
+        
     recent_approvals = app_repo.get_all(limit=5)
     recent_notifications = notif_repo.get_all(limit=10)
 
