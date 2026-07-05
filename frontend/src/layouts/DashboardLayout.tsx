@@ -10,7 +10,8 @@ import { mockApi } from '../services/mockApi';
 
 export function DashboardLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [companyName, setCompanyName] = useState('Acme Electronics');
+  const [companyName, setCompanyName] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,12 +20,24 @@ export function DashboardLayout() {
         navigate('/onboarding');
       } else {
         setCompanyName(workspace.company_name);
+        setIsLoading(false);
       }
     }).catch(e => {
       console.error(e);
       navigate('/onboarding');
     });
   }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#141416] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-t-blue-500 border-white/10 rounded-full animate-spin" />
+          <span className="text-xs text-white/45 tracking-wider font-medium">Loading operations dashboard...</span>
+        </div>
+      </div>
+    );
+  }
   
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
