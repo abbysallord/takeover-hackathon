@@ -41,6 +41,7 @@ def setup_workspace(
         workspace.gmail_connected = data.gmail_connected
         workspace.catalog_data = data.catalog_data
         workspace.pricing_data = data.pricing_data
+        workspace.onboarding_completed = data.onboarding_completed
         if data.google_client_id:
             workspace.google_client_id = data.google_client_id
         if data.google_client_secret:
@@ -59,6 +60,7 @@ def setup_workspace(
             google_client_id=data.google_client_id,
             google_client_secret=data.google_client_secret,
             google_redirect_uri=data.google_redirect_uri,
+            onboarding_completed=data.onboarding_completed,
         )
         db.add(workspace)
         
@@ -179,6 +181,18 @@ async def oauth_callback(code: str, db: Session = Depends(get_db)):
         else:
             redirect_url = f"{settings.FRONTEND_URL}/onboarding?error={str(e)}"
         return RedirectResponse(url=redirect_url)
+
+
+@router.post("/workspace/complete")
+def complete_onboarding(db: Session = Depends(get_db)):
+    """Marks onboarding as completed for the active workspace."""
+    workspace = db.query(Workspace).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="No workspace found to complete onboarding")
+    workspace.onboarding_completed = True
+    db.commit()
+    db.refresh(workspace)
+    return {"status": "success", "onboarding_completed": True}
 
 
 @router.post("/workspace/reset")

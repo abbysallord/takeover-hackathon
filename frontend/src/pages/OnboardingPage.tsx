@@ -28,6 +28,13 @@ export function OnboardingPage() {
 
   // Handle URL redirect query parameters and load credential defaults on mount
   useEffect(() => {
+    // If onboarding is already completed in DB, redirect to dashboard immediately
+    mockApi.getWorkspace().then(workspace => {
+      if (workspace && workspace.onboarding_completed) {
+        navigate('/dashboard');
+      }
+    });
+
     const params = new URLSearchParams(window.location.search);
     const connected = params.get('gmail_connected');
     const err = params.get('error');
@@ -212,7 +219,8 @@ export function OnboardingPage() {
         pricing_data: pricingData,
         google_client_id: googleClientId,
         google_client_secret: googleClientSecret,
-        google_redirect_uri: googleRedirectUri
+        google_redirect_uri: googleRedirectUri,
+        onboarding_completed: true
       };
       
       const res = await mockApi.setupWorkspace(payload);

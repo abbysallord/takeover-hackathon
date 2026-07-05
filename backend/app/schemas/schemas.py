@@ -244,6 +244,7 @@ class WorkspaceBase(BaseModel):
     business_email: str
     industry: str
     gmail_connected: bool = False
+    onboarding_completed: bool = False
     catalog_data: Optional[str] = None
     pricing_data: Optional[str] = None
     google_redirect_uri: Optional[str] = "http://localhost:8001/workspace/oauth-callback"

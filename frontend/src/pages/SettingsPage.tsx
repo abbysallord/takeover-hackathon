@@ -130,9 +130,16 @@ export function SettingsPage() {
     try {
       setIsSaving(true);
       await mockApi.resetWorkspace();
+      localStorage.removeItem('onb_companyName');
+      localStorage.removeItem('onb_businessEmail');
+      localStorage.removeItem('onb_industry');
+      localStorage.removeItem('onb_catalogData');
+      localStorage.removeItem('onb_pricingData');
+      localStorage.removeItem('onb_googleClientId');
+      localStorage.removeItem('onb_googleClientSecret');
+      localStorage.removeItem('onb_googleRedirectUri');
       toast('Workspace reset complete.', 'success');
-      // Redirect back to onboarding
-      window.location.href = '/onboarding';
+      window.location.href = '/';
     } catch (e) {
       console.error(e);
       toast('Failed to reset workspace.', 'error');

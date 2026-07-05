@@ -145,6 +145,7 @@ class Workspace(Base):
     business_email: Mapped[str] = mapped_column(String(255))
     industry: Mapped[str] = mapped_column(String(100))
     gmail_connected: Mapped[bool] = mapped_column(Boolean, default=False)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     catalog_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pricing_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     google_redirect_uri: Mapped[Optional[str]] = mapped_column(String(255), default="http://localhost:8001/workspace/oauth-callback", nullable=True)

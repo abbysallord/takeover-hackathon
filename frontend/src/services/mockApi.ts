@@ -225,6 +225,20 @@ export const mockApi = {
     }
   },
 
+  completeWorkspaceOnboarding: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error("Workspace completion failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error completing workspace onboarding:", e);
+      return null;
+    }
+  },
+
   runDemoMode: async (): Promise<any> => {
     try {
       const res = await fetch(`${API_BASE}/workflows/demo-run`, {

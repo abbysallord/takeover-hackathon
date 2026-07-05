@@ -106,7 +106,7 @@ export function DashboardLayout() {
             <hr className="border-white/5 my-4" />
             <button 
               onClick={async () => {
-                const ok = window.confirm("Are you sure you want to reset and logout of your workspace profile? This wipes all pipeline data.");
+                const ok = window.confirm("Are you sure you want to logout? This resets the demo workspace profile.");
                 if (!ok) return;
                 try {
                   await mockApi.resetWorkspace();
@@ -118,7 +118,7 @@ export function DashboardLayout() {
                   localStorage.removeItem('onb_googleClientId');
                   localStorage.removeItem('onb_googleClientSecret');
                   localStorage.removeItem('onb_googleRedirectUri');
-                  window.location.href = '/onboarding';
+                  window.location.href = '/';
                 } catch (e) {
                   console.error(e);
                 }
@@ -126,7 +126,7 @@ export function DashboardLayout() {
               className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-[#ff5f57]/10 text-[#ff5f57]/80 hover:text-[#ff5f57] w-full text-left"
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-xs font-medium">Reset & Logout</span>
+              <span className="text-xs font-medium">Logout</span>
             </button>
           </div>
         </div>
