@@ -30,7 +30,18 @@ export function DashboardOverview() {
               <p className="text-xs text-white/45 mt-0.5">AI Sales Operations Workspace</p>
             </div>
           </div>
-          <button className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-4 py-2 rounded-lg transition-colors text-white text-xs font-medium border border-white/5">
+          <button 
+            onClick={async () => {
+              setIsLoading(true);
+              await mockApi.simulateWorkflow();
+              // Refresh statistics and pipeline
+              Promise.all([
+                mockApi.getStats().then(setStats),
+                mockApi.getWorkflows().then(setWorkflows)
+              ]).then(() => setIsLoading(false));
+            }}
+            className="flex items-center gap-2 bg-[#3b82f6] hover:bg-[#2563eb] px-4 py-2 rounded-lg transition-colors text-white text-xs font-medium shadow-md shadow-blue-500/10"
+          >
             <Sparkles className="w-4 h-4" />
             Run Workflow
           </button>

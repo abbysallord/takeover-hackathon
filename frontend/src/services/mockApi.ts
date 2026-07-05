@@ -21,6 +21,26 @@ export const mockApi = {
     }
   },
 
+  simulateWorkflow: async (): Promise<any> => {
+    try {
+      const res = await fetch('http://127.0.0.1:8001/workflows/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: 'tony@starkindustries.com',
+          recipient: 'sales@company.com',
+          subject: 'Requesting 120 units of Widget-B',
+          body: 'Hi, Stark Industries needs to place a bulk order of 120 units of Widget B. Can you provide price quotes?'
+        })
+      });
+      if (!res.ok) throw new Error("Simulation fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error simulating workflow:", e);
+      return null;
+    }
+  },
+
   getWorkflows: async (): Promise<any[]> => {
     try {
       const res = await fetch('http://127.0.0.1:8001/dashboard');
