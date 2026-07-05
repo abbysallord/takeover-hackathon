@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Search, Download, Filter, User } from 'lucide-react';
+import { Search, Download, Filter, User, Plus } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { PageTransition } from '../components/PageTransition';
+import { Dialog } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/ToastContext';
 import { mockApi } from '../services/mockApi';
 
 export function CustomersPage() {
+  const { toast } = useToast();
   const [customers, setCustomers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [healthFilter, setHealthFilter] = useState<string>('ALL');
+
+  // Add Customer State
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', company: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadCustomers = async () => {
     try {
@@ -68,6 +76,30 @@ export function CustomersPage() {
     document.body.removeChild(link);
   };
 
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name || !newCustomer.email) {
+      toast("Name and email are required.", "error");
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const res = await mockApi.createCustomer(newCustomer);
+      if (res) {
+        toast("Customer added successfully!", "success");
+        setIsAddOpen(false);
+        setNewCustomer({ name: '', email: '', company: '' });
+        loadCustomers();
+      } else {
+        toast("Failed to add customer. Email might already exist.", "error");
+      }
+    } catch (e) {
+      console.error(e);
+      toast("Error adding customer.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = 
       c.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,6 +129,12 @@ export function CustomersPage() {
               <option value="GOOD">Good Health</option>
               <option value="FAIR">Fair Health</option>
             </select>
+            <button 
+              onClick={() => setIsAddOpen(true)}
+              className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Customer
+            </button>
             <button 
               onClick={handleExport}
               className="bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium border border-white/10 flex items-center gap-2 transition-colors"
@@ -162,6 +200,48 @@ export function CustomersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Add Customer Modal */}
+        <Dialog
+          isOpen={isAddOpen}
+          onClose={() => setIsAddOpen(false)}
+          title="Add New Customer"
+          onConfirm={handleAddCustomer}
+          confirmText={isSaving ? "Saving..." : "Save Customer"}
+        >
+          <div className="flex flex-col gap-4 text-xs text-white/80">
+            <div>
+              <label className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1 block">Full Name</label>
+              <input 
+                type="text"
+                value={newCustomer.name}
+                onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                placeholder="Jane Doe"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-white/20"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1 block">Email Address</label>
+              <input 
+                type="email"
+                value={newCustomer.email}
+                onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                placeholder="jane@example.com"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-white/20"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase font-bold text-white/40 tracking-wider mb-1 block">Company (Optional)</label>
+              <input 
+                type="text"
+                value={newCustomer.company}
+                onChange={(e) => setNewCustomer({...newCustomer, company: e.target.value})}
+                placeholder="Acme Corp"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-white/20"
+              />
+            </div>
+          </div>
+        </Dialog>
       </div>
     </PageTransition>
   );

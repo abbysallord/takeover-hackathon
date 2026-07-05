@@ -240,6 +240,26 @@ export function SettingsPage() {
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/20" 
                         />
                       </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Default Currency</label>
+                        <select
+                          value={localStorage.getItem('defaultCurrency') || 'USD'}
+                          onChange={(e) => {
+                            localStorage.setItem('defaultCurrency', e.target.value);
+                            // Force re-render for local state update just for the select visually
+                            setCompanyName(companyName); 
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/20 outline-none cursor-pointer"
+                        >
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="INR">INR (₹)</option>
+                        </select>
+                        <span className="text-[10px] text-white/30 mt-2 block">
+                          This preference is stored locally and applies to dashboard metrics.
+                        </span>
+                      </div>
                       
                       <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/5">
                         <button 
