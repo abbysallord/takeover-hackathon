@@ -75,7 +75,7 @@ export function NotificationsPage() {
               </button>
             )}
             <button 
-              onClick={loadNotifications}
+              onClick={() => loadNotifications(true)}
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
