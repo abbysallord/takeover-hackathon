@@ -2,13 +2,19 @@ from datetime import datetime
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import numpy as np
 
 try:
     from sentence_transformers import SentenceTransformer
     HAS_SENTENCE_TRANSFORMERS = True
 except ImportError:
     HAS_SENTENCE_TRANSFORMERS = False
+
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    np = None
 
 
 class RAGService:
@@ -87,7 +93,7 @@ class RAGService:
             return []
 
         # Case 1: Embeddings are available
-        if self.model and any(doc["embedding"] is not None for doc in self.documents):
+        if self.model and HAS_NUMPY and any(doc["embedding"] is not None for doc in self.documents):
             try:
                 query_embedding = self.model.encode(query)
                 matches = []
