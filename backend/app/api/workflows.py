@@ -234,3 +234,33 @@ def get_workflow_by_email_id(email_id: int, db: Session = Depends(get_db)) -> Op
         return None
     populate_workflow_stages(workflow)
     return workflow
+
+
+@router.post("/workflows/{id}/rerun", response_model=WorkflowResponse)
+def rerun_workflow(id: int, db: Session = Depends(get_db)) -> WorkflowResponse:
+    """Re-runs an existing workflow run on its original email enquiry."""
+    from app.models.models import Workflow
+    workflow = db.query(Workflow).filter(Workflow.id == id).first()
+    if not workflow or not workflow.email:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Workflow or associated email not found for ID {id}."
+        )
+    
+    service = WorkflowService()
+    try:
+        new_workflow = service.process_new_email(
+            db=db,
+            sender=workflow.email.sender,
+            recipient=workflow.email.recipient,
+            subject=workflow.email.subject,
+            body=workflow.email.body,
+        )
+        populate_workflow_stages(new_workflow)
+        return new_workflow
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to re-run workflow: {str(e)}"
+        )

@@ -21,6 +21,7 @@ export function KnowledgePage() {
   const [viewDoc, setViewDoc] = useState<any | null>(null);
   const [viewContent, setViewContent] = useState<string>('');
   const [isViewLoading, setIsViewLoading] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<any | null>(null);
 
   const handleViewDoc = async (doc: any) => {
     try {
@@ -117,20 +118,8 @@ export function KnowledgePage() {
     }
   };
 
-  const handleDeleteDoc = async (doc: any) => {
-    if (!window.confirm(`Are you sure you want to delete '${doc.name}'? This will remove it from the RAG search index.`)) return;
-    try {
-      const success = await mockApi.deleteKnowledgeFile(doc.category, doc.name);
-      if (success) {
-        toast(`Successfully deleted ${doc.name} from RAG index.`, 'success');
-        loadDocuments();
-      } else {
-        toast('Failed to delete file.', 'error');
-      }
-    } catch (e) {
-      console.error(e);
-      toast('Error deleting document.', 'error');
-    }
+  const handleDeleteDoc = (doc: any) => {
+    setDocToDelete(doc);
   };
 
   return (
@@ -267,6 +256,7 @@ export function KnowledgePage() {
           title={viewDoc ? `${viewDoc.name} (${viewDoc.category.toUpperCase()})` : "Document Viewer"}
           confirmText="Close"
           onConfirm={() => { setViewDoc(null); setViewContent(''); }}
+          showCancel={false}
         >
           <div className="text-left max-h-[60vh] overflow-y-auto pr-1">
             {isViewLoading ? (
@@ -279,6 +269,38 @@ export function KnowledgePage() {
                 {viewContent}
               </pre>
             )}
+          </div>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          isOpen={!!docToDelete}
+          onClose={() => setDocToDelete(null)}
+          title="Delete Document"
+          confirmText="Delete Document"
+          onConfirm={async () => {
+            if (!docToDelete) return;
+            try {
+              const success = await mockApi.deleteKnowledgeFile(docToDelete.category, docToDelete.name);
+              if (success) {
+                toast(`Successfully deleted ${docToDelete.name} from RAG index.`, 'success');
+                loadDocuments();
+              } else {
+                toast('Failed to delete file.', 'error');
+              }
+            } catch (e) {
+              console.error(e);
+              toast('Error deleting document.', 'error');
+            } finally {
+              setDocToDelete(null);
+            }
+          }}
+        >
+          <div className="flex flex-col gap-4 text-xs text-white/80">
+            <div className="bg-red-500/10 border border-red-500/20 p-3.5 rounded-xl flex items-center gap-3 text-red-400">
+              <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+              <p>Are you sure you want to delete <strong>{docToDelete?.name}</strong>? This action is permanent and will immediately remove this document from the RAG search indexing database.</p>
+            </div>
           </div>
         </Dialog>
       </div>

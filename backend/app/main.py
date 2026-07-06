@@ -28,6 +28,7 @@ async def gmail_polling_task():
     from app.services.gmail_sync_service import poll_gmail_inbox
     from sqlalchemy import text, create_engine
     import glob
+    import asyncio
 
     while True:
         try:
@@ -49,6 +50,32 @@ async def gmail_polling_task():
                 db_files = glob.glob("session_*.db")
                 tenant_sessions = [f[8:-3] for f in db_files]
 
+            async def poll_tenant(tenant):
+                # Alphanumeric check to safeguard query
+                clean_tenant = "".join(c for c in tenant if c.isalnum() or c in ("-", "_")).lower()
+                token = tenant_session_id.set(clean_tenant)
+                try:
+                    if DATABASE_URL.startswith("sqlite"):
+                        from sqlalchemy.orm import sessionmaker
+                        temp_engine = create_engine(f"sqlite:///session_{clean_tenant}.db", connect_args={"check_same_thread": False})
+                        TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
+                        db = TempSessionLocal()
+                        try:
+                            await poll_gmail_inbox(db)
+                        finally:
+                            db.close()
+                    else:
+                        db = SessionLocal()
+                        try:
+                            db.execute(text(f"SET search_path TO session_{clean_tenant}"))
+                            await poll_gmail_inbox(db)
+                        except Exception as e:
+                            print(f"Error polling tenant session_{clean_tenant}: {e}")
+                        finally:
+                            db.close()
+                finally:
+                    tenant_session_id.reset(token)
+
             # If there are no sessions yet, poll the default database just in case
             if not tenant_sessions:
                 db = SessionLocal()
@@ -57,36 +84,12 @@ async def gmail_polling_task():
                 finally:
                     db.close()
             else:
-                for tenant in tenant_sessions:
-                    # Alphanumeric check to safeguard query
-                    clean_tenant = "".join(c for c in tenant if c.isalnum() or c in ("-", "_")).lower()
-                    
-                    token = tenant_session_id.set(clean_tenant)
-                    try:
-                        if DATABASE_URL.startswith("sqlite"):
-                            from sqlalchemy.orm import sessionmaker
-                            temp_engine = create_engine(f"sqlite:///session_{clean_tenant}.db", connect_args={"check_same_thread": False})
-                            TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
-                            db = TempSessionLocal()
-                            try:
-                                await poll_gmail_inbox(db)
-                            finally:
-                                db.close()
-                        else:
-                            db = SessionLocal()
-                            try:
-                                db.execute(text(f"SET search_path TO session_{clean_tenant}"))
-                                await poll_gmail_inbox(db)
-                            except Exception as e:
-                                print(f"Error polling tenant session_{clean_tenant}: {e}")
-                            finally:
-                                db.close()
-                    finally:
-                        tenant_session_id.reset(token)
+                # Concurrently poll all active tenant sessions
+                await asyncio.gather(*(poll_tenant(t) for t in tenant_sessions), return_exceptions=True)
         except Exception as e:
             print(f"⚠️ Exception in Gmail polling task: {e}")
-        # Poll inbox every 20 seconds
-        await asyncio.sleep(20)
+        # Poll inbox every 60 seconds
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager

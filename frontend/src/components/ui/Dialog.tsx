@@ -10,9 +10,10 @@ interface DialogProps {
   children: ReactNode;
   onConfirm?: () => void;
   confirmText?: string;
+  showCancel?: boolean;
 }
 
-export function Dialog({ isOpen, onClose, title, children, onConfirm, confirmText = 'Confirm' }: DialogProps) {
+export function Dialog({ isOpen, onClose, title, children, onConfirm, confirmText = 'Confirm', showCancel = true }: DialogProps) {
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -44,9 +45,11 @@ export function Dialog({ isOpen, onClose, title, children, onConfirm, confirmTex
               </div>
               {onConfirm && (
                 <div className="p-4 bg-white/[0.02] border-t border-white/10 flex justify-end gap-3">
-                  <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">
-                    Cancel
-                  </button>
+                  {showCancel && (
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-colors">
+                      Cancel
+                    </button>
+                  )}
                   <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-sm font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors">
                     {confirmText}
                   </button>

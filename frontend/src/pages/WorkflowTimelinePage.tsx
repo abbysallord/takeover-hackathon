@@ -6,10 +6,12 @@ import { Badge } from '../components/ui/Badge';
 import { Search, Mail, FileText, CheckCircle2, RotateCw } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
+import { useToast } from '../components/ui/ToastContext';
 
 import { useLocation } from 'react-router-dom';
 
 export function WorkflowTimelinePage() {
+  const { toast } = useToast();
   const location = useLocation();
   const routeState = location.state as { workflowId?: number } | null;
 
@@ -233,11 +235,39 @@ export function WorkflowTimelinePage() {
           {selectedEnquiry ? (
             <div className="max-w-2xl">
               <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-xl font-semibold text-white">{selectedEnquiry.subject}</h1>
-                  <Badge variant={workflow?.status === 'COMPLETED' ? 'success' : (workflow?.status === 'PENDING_APPROVAL' ? 'warning' : 'processing')}>
-                    {workflow?.status || 'Processing'}
-                  </Badge>
+                <div className="flex items-center justify-between gap-4 mb-2">
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-semibold text-white">{selectedEnquiry.subject}</h1>
+                    <Badge variant={workflow?.status === 'COMPLETED' ? 'success' : (workflow?.status === 'PENDING_APPROVAL' ? 'warning' : 'processing')}>
+                      {workflow?.status || 'Processing'}
+                    </Badge>
+                  </div>
+                  {workflow && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          setIsLoading(true);
+                          const res = await mockApi.rerunWorkflow(workflow.id);
+                          if (res) {
+                            toast("Workflow execution restarted successfully!", "success");
+                            loadEnquiries();
+                          } else {
+                            toast("Failed to restart workflow.", "error");
+                          }
+                        } catch (e) {
+                          console.error(e);
+                          toast("Rerun connection error.", "error");
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      Rerun Workflow
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-white/40">From: {selectedEnquiry.sender} • Tracking the autonomous agentic execution stages.</p>
               </div>

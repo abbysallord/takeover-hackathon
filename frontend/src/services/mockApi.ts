@@ -300,6 +300,19 @@ export const mockApi = {
     }
   },
 
+  rerunWorkflow: async (id: number): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workflows/${id}/rerun`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error("Workflow rerun failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error rerunning workflow:", e);
+      return null;
+    }
+  },
+
   getLeads: async (): Promise<any[]> => {
     try {
       const res = await fetch(`${API_BASE}/leads`);

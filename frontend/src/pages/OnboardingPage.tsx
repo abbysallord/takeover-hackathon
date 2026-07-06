@@ -17,7 +17,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
   const [companyName, setCompanyName] = useState(() => localStorage.getItem('onb_companyName') || '');
-  const [businessEmail, setBusinessEmail] = useState(() => localStorage.getItem('onb_businessEmail') || '');
+  const [businessEmail, setBusinessEmail] = useState(() => localStorage.getItem('onb_businessEmail') || 'pending@connect.com');
   const [industry, setIndustry] = useState(() => localStorage.getItem('onb_industry') || 'Technology');
   const [gmailConnected, setGmailConnected] = useState(false);
   const [catalogData, setCatalogData] = useState(() => localStorage.getItem('onb_catalogData') || '');
@@ -43,6 +43,15 @@ export function OnboardingPage() {
       setGmailConnected(true);
       setStep(2); // Retain on Google step but show connected
       toast('Gmail connected successfully via Google OAuth!', 'success');
+      
+      // Load real connected email address from backend workspace profile
+      mockApi.getWorkspace().then(workspace => {
+        if (workspace && workspace.business_email) {
+          setBusinessEmail(workspace.business_email);
+          localStorage.setItem('onb_businessEmail', workspace.business_email);
+        }
+      });
+
       // Clean query params
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (err) {
@@ -196,8 +205,8 @@ export function OnboardingPage() {
   };
 
   const handleNext = () => {
-    if (step === 1 && (!companyName || !businessEmail)) {
-      toast('Please fill in all company information.', 'error');
+    if (step === 1 && !companyName) {
+      toast('Please enter your company name to continue.', 'error');
       return;
     }
     setStep(prev => prev + 1);
@@ -279,20 +288,7 @@ export function OnboardingPage() {
                       placeholder="e.g. Acme Corporation"
                       value={companyName}
                       onChange={e => setCompanyName(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase font-semibold text-white/40 block mb-2 tracking-wider">Business Email Address</label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/35" />
-                    <input 
-                      type="email"
-                      placeholder="e.g. sales@acme.com"
-                      value={businessEmail}
-                      onChange={e => setBusinessEmail(e.target.value)}
+                      maxLength={80}
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20"
                     />
                   </div>
