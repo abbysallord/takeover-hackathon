@@ -235,8 +235,8 @@ export function WorkflowTimelinePage() {
           {selectedEnquiry ? (
             <div className="max-w-2xl">
               <div className="mb-8">
-                <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-xl font-semibold text-white">{selectedEnquiry.subject}</h1>
                     <Badge variant={workflow?.status === 'COMPLETED' ? 'success' : (workflow?.status === 'PENDING_APPROVAL' ? 'warning' : 'processing')}>
                       {workflow?.status || 'Processing'}
@@ -262,7 +262,7 @@ export function WorkflowTimelinePage() {
                         }
                       }}
                       disabled={isLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg text-xs font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg text-xs font-medium transition-colors shrink-0"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       Rerun Workflow
