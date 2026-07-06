@@ -120,7 +120,8 @@ def get_db(request: Request = None) -> Generator:
                         
                         # 2. Re-create all tables in this session schema if not exist
                         import app.models.models
-                        Base.metadata.create_all(bind=conn)
+                        tenant_conn = conn.execution_options(schema_translate_map={None: f"session_{session_id}"})
+                        Base.metadata.create_all(bind=tenant_conn)
                         
                         # 3. Seed data for this session
                         from app.services.seed_service import seed_database
