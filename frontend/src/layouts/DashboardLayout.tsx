@@ -121,14 +121,14 @@ export function DashboardLayout() {
       `}>
         <div className={`py-4 flex flex-col gap-6 flex-1 overflow-y-auto transition-all duration-300 ${isSidebarCollapsed ? 'px-3' : 'px-5'}`}>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between px-3">
             <Link to="/" className="hover:opacity-80 transition-opacity" title="Back to Landing Page">
               <Logo className="w-5 h-5 text-white/70" />
             </Link>
             {!isSidebarCollapsed && <Grid className="w-4 h-4 text-white/30" />}
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 px-3">
             <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center text-xs font-bold text-white shrink-0">
               {companyName ? companyName.charAt(0).toUpperCase() : 'W'}
             </div>

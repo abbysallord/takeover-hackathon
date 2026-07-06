@@ -113,12 +113,12 @@ export function CustomersPage() {
   return (
     <PageTransition>
       <div className="animate-fade-up">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1">Customers Base</h1>
             <p className="text-sm text-white/40">View and manage your active customer base.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
             <select
               value={healthFilter}
               onChange={(e) => setHealthFilter(e.target.value)}
@@ -144,8 +144,8 @@ export function CustomersPage() {
           </div>
         </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center gap-3">
+        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-x-auto">
+          <div className="p-4 border-b border-white/10 flex items-center gap-3 min-w-[600px]">
             <Search className="w-4 h-4 text-white/40" />
             <input 
               type="text" 
@@ -156,7 +156,7 @@ export function CustomersPage() {
             />
           </div>
           
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="bg-white/5 text-xs text-white/40 uppercase tracking-wider">
                 <th className="px-6 py-4 font-medium">Company</th>

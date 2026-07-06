@@ -145,9 +145,9 @@ export function InboxPage() {
 
   return (
     <PageTransition>
-      <div className="flex h-[calc(100vh-4rem)] gap-6 -mt-4">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] gap-4 md:gap-6 -mt-4">
         {/* Left Pane: Email List */}
-        <div className="w-80 flex flex-col gap-4 border-r border-white/5 pr-6">
+        <div className="w-full md:w-80 flex flex-col gap-4 md:border-r border-b md:border-b-0 border-white/5 pb-4 md:pb-0 md:pr-6 flex-shrink-0 h-[40%] md:h-auto">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-white">Inbox</h2>
             <Badge variant="neutral">{emails.length} Emails</Badge>
@@ -212,7 +212,7 @@ export function InboxPage() {
         </div>
 
         {/* Right Pane: Email Detail & AI Draft */}
-        <div className="flex-1 flex flex-col overflow-y-auto pr-4">
+        <div className="flex-1 flex flex-col overflow-y-auto md:pr-4 pt-4 md:pt-0">
           {selectedEmail ? (
             <div className="max-w-3xl animate-fade-up">
               {/* Original Email Header */}

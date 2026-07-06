@@ -81,7 +81,7 @@ export function QuotationsPage() {
   return (
     <PageTransition>
       <div className="animate-fade-up">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1">Quotations</h1>
             <p className="text-sm text-white/40">Manage your AI-generated PDF quotes.</p>
@@ -132,7 +132,7 @@ export function QuotationsPage() {
             {filteredQuotes.map((q) => (
               <div 
                 key={q.id} 
-                className="bg-white/5 border border-white/10 rounded-xl p-5 flex items-center justify-between hover:bg-white/10 transition-colors"
+                className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0 hover:bg-white/10 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
@@ -146,9 +146,8 @@ export function QuotationsPage() {
                     <div className="text-xs text-white/40 mt-1">Generated {new Date(q.created_at).toLocaleDateString()}</div>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-12">
-                  <div className="text-right">
+                <div className="flex flex-wrap md:flex-nowrap items-center gap-4 md:gap-12 justify-between w-full md:w-auto">
+                  <div className="text-left md:text-right">
                     <div className="text-sm font-semibold text-white">${q.total_amount.toLocaleString()}</div>
                     <div className="text-[10px] text-white/40 mt-1 uppercase tracking-wider">Total Value</div>
                   </div>
@@ -215,8 +214,8 @@ export function QuotationsPage() {
                 {/* Items Table */}
                 <div>
                   <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-wider">Line Items</label>
-                  <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
+                  <div className="bg-white/5 rounded-xl border border-white/10 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[400px]">
                       <thead>
                         <tr className="bg-white/5 text-[10px] text-white/40 uppercase tracking-wider">
                           <th className="px-4 py-2 font-medium">Product</th>

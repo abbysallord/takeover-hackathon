@@ -85,7 +85,7 @@ export function AnalyticsPage() {
   return (
     <PageTransition>
       <div className="animate-fade-up">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1">Analytics Overview</h1>
             <p className="text-sm text-white/40">Measure the impact of automated operations on your sales cycle.</p>

@@ -186,9 +186,9 @@ export function WorkflowTimelinePage() {
 
   return (
     <PageTransition>
-      <div className="flex h-[calc(100vh-4rem)] gap-6 -mt-4">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] gap-4 md:gap-6 -mt-4">
         {/* Sidebar List */}
-        <div className="w-80 flex flex-col gap-4 border-r border-white/5 pr-6">
+        <div className="w-full md:w-80 flex flex-col gap-4 md:border-r border-b md:border-b-0 border-white/5 pb-4 md:pb-0 md:pr-6 flex-shrink-0 h-[40%] md:h-auto">
           <h2 className="text-lg font-medium text-white mb-2">Active Workflows</h2>
           
           <div className="relative">
@@ -231,12 +231,12 @@ export function WorkflowTimelinePage() {
         </div>
 
         {/* Main Timeline View */}
-        <div className="flex-1 flex flex-col pl-2 overflow-y-auto">
+        <div className="flex-1 flex flex-col md:pl-2 overflow-y-auto pt-4 md:pt-0">
           {selectedEnquiry ? (
             <div className="max-w-2xl">
               <div className="mb-8">
-                <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-xl font-semibold text-white">{selectedEnquiry.subject}</h1>
                     <Badge variant={workflow?.status === 'COMPLETED' ? 'success' : (workflow?.status === 'PENDING_APPROVAL' ? 'warning' : 'processing')}>
                       {workflow?.status || 'Processing'}
@@ -262,7 +262,7 @@ export function WorkflowTimelinePage() {
                         }
                       }}
                       disabled={isLoading}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg text-xs font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-lg text-xs font-medium transition-colors shrink-0"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                       Rerun Workflow
