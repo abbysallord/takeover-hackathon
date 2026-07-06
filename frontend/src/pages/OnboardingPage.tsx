@@ -332,48 +332,7 @@ export function OnboardingPage() {
                   </div>
                 </div>
 
-                {/* Advanced Developer Settings (Collapsable) */}
-                <details className="group border border-white/5 bg-white/[0.01] rounded-xl overflow-hidden my-2">
-                  <summary className="flex justify-between items-center px-4 py-3 text-[10px] font-bold text-white/40 uppercase tracking-wider cursor-pointer hover:bg-white/5 select-none transition-colors">
-                    <span>Advanced Developer Settings (Optional)</span>
-                    <span className="transition-transform group-open:rotate-180 text-[8px]">▼</span>
-                  </summary>
-                  <div className="flex flex-col gap-4 text-left p-4 border-t border-white/5">
-                    <div>
-                      <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Google Client ID</label>
-                      <input 
-                        type="text"
-                        placeholder="Paste Client ID"
-                        value={googleClientId}
-                        onChange={e => setGoogleClientId(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Google Client Secret</label>
-                      <input 
-                        type="password"
-                        placeholder="Paste Client Secret"
-                        value={googleClientSecret}
-                        onChange={e => setGoogleClientSecret(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] uppercase font-bold text-white/40 block mb-1 tracking-wider">Authorized Redirect URI</label>
-                      <input 
-                        type="text"
-                        placeholder="e.g. http://localhost:8001/workspace/oauth-callback"
-                        value={googleRedirectUri}
-                        onChange={e => setGoogleRedirectUri(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white font-mono outline-none focus:ring-1 focus:ring-white/20"
-                      />
-                      <span className="text-[9px] text-white/30 block mt-1 leading-normal">
-                        Must match the Authorized redirect URIs configured in your Google Developer Console OAuth credentials.
-                      </span>
-                    </div>
-                  </div>
-                </details>
+
 
                 <div className="flex justify-center">
                   {gmailConnected ? (

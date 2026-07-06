@@ -39,7 +39,7 @@ async def gmail_polling_task():
                 temp_db = SessionLocal()
                 try:
                     res = temp_db.execute(text("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE 'session_%'"))
-                    tenant_sessions = [row[0].replace("session_", "") for row in res.fetchall()]
+                    tenant_sessions = [row[0][8:] for row in res.fetchall()]
                 except Exception as e:
                     print(f"Error querying schemas: {e}")
                 finally:
@@ -47,7 +47,7 @@ async def gmail_polling_task():
             # Find SQLite files
             else:
                 db_files = glob.glob("session_*.db")
-                tenant_sessions = [f.replace("session_", "").replace(".db", "") for f in db_files]
+                tenant_sessions = [f[8:-3] for f in db_files]
 
             # If there are no sessions yet, poll the default database just in case
             if not tenant_sessions:
@@ -165,7 +165,14 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "X-Session-ID",
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+    ],
 )
 
 # Mount API routers directly to match target path mappings

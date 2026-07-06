@@ -9,6 +9,7 @@ export function ApprovalsPage() {
   const { toast } = useToast();
   const [approvals, setApprovals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<number | null>(null);
 
@@ -36,31 +37,51 @@ export function ApprovalsPage() {
   const handleConfirmApprove = async () => {
     if (!selectedApproval) return;
     setDialogOpen(false);
+    setIsProcessing(true);
     
-    // Call mock API connecting to backend
-    const res = await mockApi.approveAction(selectedApproval);
-    
-    if (res.success) {
-      // Refresh list
-      await fetchApprovals();
-      toast('Workflow action approved and executed successfully.', 'success');
-    } else {
+    try {
+      const res = await mockApi.approveAction(selectedApproval);
+      if (res.success) {
+        await fetchApprovals();
+        toast('Workflow action approved and executed successfully.', 'success');
+      } else {
+        toast('Failed to approve workflow action.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
       toast('Failed to approve workflow action.', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleRejectClick = async (id: number) => {
-    const res = await mockApi.rejectAction(id);
-    if (res.success) {
-      await fetchApprovals();
-      toast('Action rejected and workflow cancelled.', 'error');
-    } else {
+    setIsProcessing(true);
+    try {
+      const res = await mockApi.rejectAction(id);
+      if (res.success) {
+        await fetchApprovals();
+        toast('Action rejected and workflow cancelled.', 'error');
+      } else {
+        toast('Failed to reject workflow action.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
       toast('Failed to reject workflow action.', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <PageTransition>
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex flex-col items-center justify-center gap-3">
+          <div className="w-10 h-10 border-4 border-t-blue-500 border-white/10 rounded-full animate-spin" />
+          <span className="text-xs text-white/80 font-medium tracking-wide">Executing AI Workflow Agent...</span>
+        </div>
+      )}
+
       <div className="animate-fade-up">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -68,16 +89,24 @@ export function ApprovalsPage() {
             <p className="text-sm text-white/40">Review and approve high-stakes AI actions.</p>
           </div>
           <button 
+            disabled={isProcessing}
             onClick={async () => {
-              // Approve all pending
               const pending = approvals.filter(a => a.status === 'pending');
-              for (const item of pending) {
-                await mockApi.approveAction(item.id);
+              if (pending.length === 0) return;
+              setIsProcessing(true);
+              try {
+                for (const item of pending) {
+                  await mockApi.approveAction(item.id);
+                }
+                await fetchApprovals();
+                toast('All pending workflows have been approved.', 'success');
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setIsProcessing(false);
               }
-              await fetchApprovals();
-              toast('All pending workflows have been approved.', 'success');
             }}
-            className="bg-[#28c840]/20 text-[#28c840] hover:bg-[#28c840]/30 px-4 py-2 rounded-lg text-sm font-medium border border-[#28c840]/30 transition-colors"
+            className="bg-[#28c840]/20 text-[#28c840] hover:bg-[#28c840]/30 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium border border-[#28c840]/30 transition-colors"
           >
             Approve All Pending
           </button>
