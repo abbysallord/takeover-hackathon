@@ -153,7 +153,7 @@ export function NotificationsPage() {
                   <button
                     onClick={() => {
                       setIsOpen(false);
-                      navigate('/dashboard/timeline');
+                      navigate('/dashboard/workflow', { state: { workflowId: selectedNotif.workflow_id } });
                     }}
                     className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold flex items-center gap-1.5 transition-colors"
                   >

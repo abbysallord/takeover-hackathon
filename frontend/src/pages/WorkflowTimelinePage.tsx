@@ -7,7 +7,12 @@ import { Search, Mail, FileText, CheckCircle2, RotateCw } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
 
+import { useLocation } from 'react-router-dom';
+
 export function WorkflowTimelinePage() {
+  const location = useLocation();
+  const routeState = location.state as { workflowId?: number } | null;
+
   const [enquiries, setEnquiries] = useState<any[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedEnquiry, setSelectedEnquiry] = useState<any>(null);
@@ -22,6 +27,19 @@ export function WorkflowTimelinePage() {
       // Filter inbound emails
       const inbound = data.filter((e: any) => e.direction === "INBOUND");
       setEnquiries(inbound);
+      
+      const targetWorkflowId = routeState?.workflowId;
+      if (targetWorkflowId) {
+        const wfs = await mockApi.getWorkflows();
+        const wf = wfs.find((w: any) => w.id === targetWorkflowId);
+        if (wf && wf.email_id) {
+          setSelectedId(wf.email_id);
+          const email = inbound.find((e: any) => e.id === wf.email_id);
+          if (email) setSelectedEnquiry(email);
+          return;
+        }
+      }
+
       if (inbound.length > 0) {
         setSelectedId(inbound[0].id);
         setSelectedEnquiry(inbound[0]);

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { 
   Grid, LayoutDashboard, Inbox, UserPlus, Users, FileText, 
-  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search, LogOut
+  CheckSquare, BarChart2, BookOpen, Bell, Settings, GitBranch, Menu, Search, LogOut,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { CommandPalette } from '../components/ui/CommandPalette';
@@ -25,6 +26,24 @@ export function DashboardLayout() {
     onConfirm: () => {}
   });
 
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    const nextVal = !isSidebarCollapsed;
+    setIsSidebarCollapsed(nextVal);
+    localStorage.setItem('sidebar_collapsed', String(nextVal));
+  };
+
+  const checkUnreadNotifications = () => {
+    mockApi.getNotifications().then(notifs => {
+      const unread = notifs.some((n: any) => !n.is_read);
+      setHasUnreadNotifications(unread);
+    }).catch(e => console.error(e));
+  };
+
   useEffect(() => {
     mockApi.getWorkspace().then(workspace => {
       if (!workspace) {
@@ -38,6 +57,12 @@ export function DashboardLayout() {
       navigate('/onboarding');
     });
   }, [navigate]);
+
+  useEffect(() => {
+    checkUnreadNotifications();
+    const interval = setInterval(checkUnreadNotifications, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -77,24 +102,27 @@ export function DashboardLayout() {
 
       {/* Sidebar */}
       <div className={`
-        fixed md:static inset-y-0 left-0 z-50 w-64 border-r border-white/5 bg-[#1e1e21] flex flex-col flex-shrink-0
-        transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        fixed md:static inset-y-0 left-0 z-50 border-r border-white/5 bg-[#1e1e21] flex flex-col flex-shrink-0
+        transition-all duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
+        ${isSidebarCollapsed ? 'md:w-16' : 'md:w-64'}
       `}>
-        <div className="px-5 py-4 flex flex-col gap-6 flex-1 overflow-y-auto">
+        <div className={`py-4 flex flex-col gap-6 flex-1 overflow-y-auto transition-all duration-300 ${isSidebarCollapsed ? 'px-3' : 'px-5'}`}>
           
           <div className="flex items-center justify-between">
             <Link to="/" className="hover:opacity-80 transition-opacity" title="Back to Landing Page">
               <Logo className="w-5 h-5 text-white/70" />
             </Link>
-            <Grid className="w-4 h-4 text-white/30" />
+            {!isSidebarCollapsed && <Grid className="w-4 h-4 text-white/30" />}
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center text-xs font-bold text-white">
+            <div className="w-6 h-6 rounded bg-[#3b82f6] flex items-center justify-center text-xs font-bold text-white shrink-0">
               {companyName ? companyName.charAt(0).toUpperCase() : 'W'}
             </div>
-            <span className="text-xs text-white/80 font-medium">{companyName}</span>
+            {!isSidebarCollapsed && (
+              <span className="text-xs text-white/80 font-medium truncate">{companyName}</span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1 mt-2">
@@ -104,14 +132,27 @@ export function DashboardLayout() {
                 to={item.path}
                 end={item.path === '/dashboard'}
                 onClick={() => setIsMobileMenuOpen(false)}
+                title={isSidebarCollapsed ? item.label : undefined}
                 className={({ isActive }) => 
-                  `flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                  `flex items-center rounded-md cursor-pointer transition-all duration-300 ${
+                    isSidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'
+                  } ${
                     isActive ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-white/60 hover:text-white/80'
                   }`
                 }
               >
-                <item.icon className="w-4 h-4" />
-                <span className="text-xs font-medium">{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    {item.label === 'Notifications' && hasUnreadNotifications && isSidebarCollapsed && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#ff5f57] border-2 border-[#1e1e21] animate-pulse" />
+                    )}
+                  </div>
+                  {!isSidebarCollapsed && <span className="text-xs font-medium">{item.label}</span>}
+                </div>
+                {item.label === 'Notifications' && hasUnreadNotifications && !isSidebarCollapsed && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] animate-pulse" />
+                )}
               </NavLink>
             ))}
             <hr className="border-white/5 my-4" />
@@ -143,10 +184,28 @@ export function DashboardLayout() {
                   }
                 });
               }}
-              className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-[#ff5f57]/10 text-[#ff5f57]/80 hover:text-[#ff5f57] w-full text-left"
+              title={isSidebarCollapsed ? "Logout" : undefined}
+              className={`flex items-center rounded-md cursor-pointer transition-all duration-300 hover:bg-[#ff5f57]/10 text-[#ff5f57]/80 hover:text-[#ff5f57] text-left ${
+                isSidebarCollapsed ? 'justify-center p-2 w-10' : 'px-3 py-2 w-full gap-3'
+              }`}
             >
-              <LogOut className="w-4 h-4" />
-              <span className="text-xs font-medium">Logout</span>
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!isSidebarCollapsed && <span className="text-xs font-medium">Logout</span>}
+            </button>
+
+            <button 
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? "Expand Menu" : "Collapse Menu"}
+              className={`hidden md:flex items-center rounded-md hover:bg-white/5 text-white/40 hover:text-white/80 transition-all duration-300 mt-auto py-2.5 ${
+                isSidebarCollapsed ? 'justify-center p-2 w-10' : 'px-3 py-2 w-full gap-3 border-t border-white/5 mt-4'
+              }`}
+            >
+              {isSidebarCollapsed ? <ChevronRight className="w-4 h-4 shrink-0" /> : (
+                <>
+                  <ChevronLeft className="w-4 h-4 shrink-0" />
+                  <span className="text-xs font-medium">Collapse Menu</span>
+                </>
+              )}
             </button>
           </div>
         </div>
