@@ -21,7 +21,9 @@ class RAGService:
     """Lightweight in-memory vector store and retrieval-augmented generation document parser."""
 
     def __init__(self, knowledge_root: Optional[str] = None) -> None:
-        self.base_knowledge_root = Path(knowledge_root or Path(__file__).resolve().parent.parent.parent / "knowledge")
+        import os
+        default_root = Path("/tmp/knowledge") if os.name != "nt" else Path(__file__).resolve().parent.parent.parent / "knowledge"
+        self.base_knowledge_root = Path(knowledge_root or default_root)
         self._model: Optional[Any] = None
         self.documents_by_session: Dict[Optional[str], List[Dict[str, Any]]] = {}
         self.initialized_sessions: Dict[Optional[str], bool] = {}
@@ -76,6 +78,24 @@ class RAGService:
             return
 
         self.documents = []
+
+        # Writable tmp path compatibility: Auto-copy default policy docs if they are not in the current target path
+        src_root = Path(__file__).resolve().parent.parent.parent / "knowledge"
+        if src_root.exists() and src_root.resolve() != self.knowledge_root.resolve():
+            import shutil
+            import os
+            try:
+                for file_path in src_root.glob("**/*"):
+                    if file_path.is_file() and file_path.suffix in [".md", ".txt"]:
+                        # Compute relative path
+                        rel_path = file_path.relative_to(src_root)
+                        dest_path = self.knowledge_root / rel_path
+                        if not dest_path.exists():
+                            os.makedirs(dest_path.parent, exist_ok=True)
+                            shutil.copy2(file_path, dest_path)
+            except Exception as e:
+                print(f"⚠️ Failed to copy default policies to dynamic knowledge root: {e}")
+
         if not self.knowledge_root.exists():
             print(f"⚠️ Knowledge root directory {self.knowledge_root} does not exist. Empty RAG context.")
             self._is_initialized = True
