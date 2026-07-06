@@ -92,8 +92,13 @@ def setup_workspace(
 
 
 @router.get("/workspace/auth-url")
-def get_auth_url(db: Session = Depends(get_db)):
+def get_auth_url(request: Request, db: Session = Depends(get_db)):
     """Generates the Google OAuth authorization URL to initiate sign-in flow."""
+    # Capture the session_id to pass inside the OAuth state parameter
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        session_id = request.query_params.get("session_id")
+
     workspace = db.query(Workspace).first()
     client_id = (
         (workspace.google_client_id)
@@ -117,12 +122,35 @@ def get_auth_url(db: Session = Depends(get_db)):
         "&access_type=offline"
         "&prompt=consent"
     )
+    if session_id:
+        auth_url += f"&state={session_id}"
+        
     return {"auth_url": auth_url}
 
 
 @router.get("/workspace/oauth-callback")
-async def oauth_callback(code: str, db: Session = Depends(get_db)):
+async def oauth_callback(code: str, state: Optional[str] = None, db: Session = Depends(get_db)):
     """Handles the redirect from Google OAuth consent screen."""
+    if state:
+        from app.models.database import tenant_session_id, INITIALIZED_SCHEMAS
+        from app.models.models import Base
+        from sqlalchemy import text
+        session_id = "".join(c for c in state if c.isalnum() or c in ("-", "_")).lower()
+        session_id = session_id[:50]
+        tenant_session_id.set(session_id)
+        
+        # Set search path and ensure tables exist in target schema
+        db.execute(text(f"SET search_path TO session_{session_id}"))
+        db.commit()
+        
+        if session_id not in INITIALIZED_SCHEMAS:
+            conn = db.connection()
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
+            conn.execute(text(f"SET search_path TO session_{session_id}"))
+            Base.metadata.create_all(bind=conn)
+            db.commit()
+            INITIALIZED_SCHEMAS.add(session_id)
+
     workspace = db.query(Workspace).first()
     if not workspace:
         # Create a default workspace record to hold connection info
