@@ -24,6 +24,22 @@ else:
     )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+from sqlalchemy import event
+
+@event.listens_for(engine, "checkout")
+def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+    sid = tenant_session_id.get()
+    cursor = dbapi_connection.cursor()
+    try:
+        if sid:
+            cursor.execute(f"SET search_path TO session_{sid}")
+        else:
+            cursor.execute("SET search_path TO public")
+    except Exception:
+        pass
+    finally:
+        cursor.close()
+
 
 class Base(DeclarativeBase):
     """SQLAlchemy 2.0 Declarative base class for all database models."""
