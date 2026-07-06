@@ -136,7 +136,13 @@ async def oauth_callback(
     db: Session = Depends(get_db)
 ):
     """Handles the redirect from Google OAuth consent screen."""
-    workspace = db.query(Workspace).first()
+    try:
+        workspace = db.query(Workspace).first()
+    except Exception as e:
+        import urllib.parse
+        error_msg = urllib.parse.quote(f"DB Error: {str(e)}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/onboarding?error={error_msg}")
+
     if error or not code:
         err_msg = error or "missing_code"
         if workspace and workspace.catalog_data:

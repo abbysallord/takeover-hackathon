@@ -113,40 +113,43 @@ def get_db(request: Request = None) -> Generator:
                     from sqlalchemy import text
                     conn = db.connection()
                     
-                    if session_id not in INITIALIZED_SCHEMAS:
-                        # 1. Create session schema if not exist
-                        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
-                        conn.execute(text(f"SET search_path TO session_{session_id}"))
+                    try:
+                        if session_id not in INITIALIZED_SCHEMAS:
+                            # 1. Create session schema if not exist
+                            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
+                            conn.execute(text(f"SET search_path TO session_{session_id}"))
+                            
+                            # 2. Re-create all tables in this session schema if not exist
+                            import app.models.models
+                            tenant_conn = conn.execution_options(schema_translate_map={None: f"session_{session_id}"})
+                            Base.metadata.create_all(bind=tenant_conn)
+                            
+                            # 3. Seed data for this session
+                            from app.services.seed_service import seed_database
+                            seed_database(db)
+                            db.commit()
+                            
+                            INITIALIZED_SCHEMAS.add(session_id)
+                        else:
+                            # Extremely fast schema selection
+                            conn.execute(text(f"SET search_path TO session_{session_id}"))
                         
-                        # 2. Re-create all tables in this session schema if not exist
-                        import app.models.models
-                        tenant_conn = conn.execution_options(schema_translate_map={None: f"session_{session_id}"})
-                        Base.metadata.create_all(bind=tenant_conn)
+                        # Ensure session also uses search path
+                        db.execute(text(f"SET search_path TO session_{session_id}"))
                         
-                        # 3. Seed data for this session
-                        from app.services.seed_service import seed_database
-                        seed_database(db)
-                        db.commit()
+                    except Exception as e:
+                        print(f"Error initializing tenant schema session_{session_id}: {e}")
+                        # Fallback to public on exception
+                        db.execute(text("SET search_path TO public"))
                         
-                        INITIALIZED_SCHEMAS.add(session_id)
-                    else:
-                        # Extremely fast schema selection
-                        conn.execute(text(f"SET search_path TO session_{session_id}"))
-                    
-                    # Ensure session also uses search path
-                    db.execute(text(f"SET search_path TO session_{session_id}"))
-                    
-                    yield db
-                except Exception as e:
-                    print(f"Error initializing tenant schema session_{session_id}: {e}")
-                    # Fallback to public on exception
-                    db.execute(text("SET search_path TO public"))
                     yield db
                 finally:
                     db.close()
             else:
-                yield db
-                db.close()
+                try:
+                    yield db
+                finally:
+                    db.close()
     finally:
         try:
             tenant_session_id.reset(token)
