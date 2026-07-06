@@ -90,8 +90,15 @@ async def gmail_polling_task():
                 finally:
                     db.close()
             else:
-                # Concurrently poll all active tenant sessions
-                await asyncio.gather(*(poll_tenant(t) for t in tenant_sessions), return_exceptions=True)
+                # Sequentially poll active tenant sessions to prevent database connection spikes
+                for t in tenant_sessions:
+                    try:
+                        # Wrap each polling action in a timeout to prevent blocking other tenants
+                        await asyncio.wait_for(poll_tenant(t), timeout=10.0)
+                    except Exception as poll_ex:
+                        print(f"Error checking tenant {t}: {poll_ex}")
+                    # Add breathing space between connections
+                    await asyncio.sleep(0.5)
         except Exception as e:
             print(f"⚠️ Exception in Gmail polling task: {e}")
         # Poll inbox every 60 seconds
