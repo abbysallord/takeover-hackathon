@@ -129,29 +129,19 @@ def get_auth_url(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/workspace/oauth-callback")
-async def oauth_callback(code: str, state: Optional[str] = None, db: Session = Depends(get_db)):
+async def oauth_callback(
+    code: Optional[str] = None, 
+    error: Optional[str] = None,
+    state: Optional[str] = None, 
+    db: Session = Depends(get_db)
+):
     """Handles the redirect from Google OAuth consent screen."""
-    if state:
-        from app.models.database import tenant_session_id, INITIALIZED_SCHEMAS
-        from app.models.models import Base
-        from sqlalchemy import text
-        session_id = "".join(c for c in state if c.isalnum() or c in ("-", "_")).lower()
-        session_id = session_id[:50]
-        tenant_session_id.set(session_id)
-        
-        # Set search path and ensure tables exist in target schema
-        db.execute(text(f"SET search_path TO session_{session_id}"))
-        db.commit()
-        
-        if session_id not in INITIALIZED_SCHEMAS:
-            conn = db.connection()
-            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
-            conn.execute(text(f"SET search_path TO session_{session_id}"))
-            Base.metadata.create_all(bind=conn)
-            db.commit()
-            INITIALIZED_SCHEMAS.add(session_id)
-
     workspace = db.query(Workspace).first()
+    if error or not code:
+        err_msg = error or "missing_code"
+        if workspace and workspace.catalog_data:
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard/settings?error={err_msg}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/onboarding?error={err_msg}")
     if not workspace:
         # Create a default workspace record to hold connection info
         workspace = Workspace(

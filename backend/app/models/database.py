@@ -45,6 +45,8 @@ def get_db(request: Request = None) -> Generator:
         session_id = request.headers.get("x-session-id")
         if not session_id:
             session_id = request.query_params.get("session_id")
+        if not session_id:
+            session_id = request.query_params.get("state")
             
     if session_id:
         session_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_")).lower()
