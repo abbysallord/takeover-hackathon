@@ -59,6 +59,7 @@ def get_db(request: Request = None) -> Generator:
                         # Seed database if empty
                         from app.services.seed_service import seed_database
                         seed_database(db)
+                        db.commit()
                         INITIALIZED_SQLITE_FILES.add(session_id)
                         yield db
                     finally:
@@ -96,6 +97,7 @@ def get_db(request: Request = None) -> Generator:
                         # 3. Seed data for this session
                         from app.services.seed_service import seed_database
                         seed_database(db)
+                        db.commit()
                         
                         INITIALIZED_SCHEMAS.add(session_id)
                     else:
