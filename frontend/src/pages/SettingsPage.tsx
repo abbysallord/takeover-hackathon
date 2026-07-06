@@ -55,6 +55,10 @@ export function SettingsPage() {
   }, []);
 
   const handleSave = async () => {
+    if (!companyName || !companyName.trim()) {
+      toast('Company Name cannot be empty.', 'error');
+      return;
+    }
     try {
       setIsSaving(true);
       const payload = {
@@ -241,6 +245,7 @@ export function SettingsPage() {
                           type="text" 
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
+                          maxLength={80}
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/20" 
                         />
                       </div>
