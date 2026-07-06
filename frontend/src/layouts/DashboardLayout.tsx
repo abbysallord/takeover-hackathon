@@ -27,6 +27,7 @@ export function DashboardLayout() {
   });
 
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [hasPendingApprovals, setHasPendingApprovals] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
   });
@@ -44,9 +45,16 @@ export function DashboardLayout() {
     }).catch(e => console.error(e));
   };
 
+  const checkPendingApprovals = () => {
+    mockApi.getApprovals().then(approvals => {
+      const pending = approvals.some((a: any) => a.status === 'pending');
+      setHasPendingApprovals(pending);
+    }).catch(e => console.error(e));
+  };
+
   useEffect(() => {
     mockApi.getWorkspace().then(workspace => {
-      if (!workspace) {
+      if (!workspace || !workspace.onboarding_completed) {
         navigate('/onboarding');
       } else {
         setCompanyName(workspace.company_name);
@@ -60,7 +68,11 @@ export function DashboardLayout() {
 
   useEffect(() => {
     checkUnreadNotifications();
-    const interval = setInterval(checkUnreadNotifications, 10000);
+    checkPendingApprovals();
+    const interval = setInterval(() => {
+      checkUnreadNotifications();
+      checkPendingApprovals();
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -147,11 +159,17 @@ export function DashboardLayout() {
                     {item.label === 'Notifications' && hasUnreadNotifications && isSidebarCollapsed && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#ff5f57] border-2 border-[#1e1e21] animate-pulse" />
                     )}
+                    {item.label === 'Approvals' && hasPendingApprovals && isSidebarCollapsed && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#ff9f0a] border-2 border-[#1e1e21] animate-pulse" />
+                    )}
                   </div>
                   {!isSidebarCollapsed && <span className="text-xs font-medium">{item.label}</span>}
                 </div>
                 {item.label === 'Notifications' && hasUnreadNotifications && !isSidebarCollapsed && (
                   <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] animate-pulse" />
+                )}
+                {item.label === 'Approvals' && hasPendingApprovals && !isSidebarCollapsed && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff9f0a] animate-pulse" />
                 )}
               </NavLink>
             ))}

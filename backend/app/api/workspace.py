@@ -243,6 +243,25 @@ def reset_workspace(db: Session = Depends(get_db)):
     db.query(Customer).delete()
     db.query(Workspace).delete()
     db.commit()
+
+    # Purge tenant dynamic knowledge folder and reset dynamic RAG service caches
+    from app.services.rag_service import rag_service
+    from app.models.database import tenant_session_id
+    import shutil
+    sid = tenant_session_id.get()
+    
+    if sid in rag_service.documents_by_session:
+        rag_service.documents_by_session[sid] = []
+    if sid in rag_service.initialized_sessions:
+        rag_service.initialized_sessions[sid] = False
+        
+    try:
+        tenant_path = rag_service.knowledge_root
+        if tenant_path.exists() and tenant_path.is_dir():
+            shutil.rmtree(tenant_path)
+    except Exception as e:
+        print(f"Error purging tenant dynamic knowledge path: {e}")
+
     return {"success": True, "message": "Workspace profile and all workspace transaction data reset successfully."}
 
 
