@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { CommandPalette } from '../components/ui/CommandPalette';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { mockApi } from '../services/mockApi';
 
 export function DashboardLayout() {
@@ -13,6 +14,16 @@ export function DashboardLayout() {
   const [companyName, setCompanyName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    type: 'info' as 'info' | 'danger',
+    onConfirm: () => {}
+  });
 
   useEffect(() => {
     mockApi.getWorkspace().then(workspace => {
@@ -105,23 +116,32 @@ export function DashboardLayout() {
             ))}
             <hr className="border-white/5 my-4" />
             <button 
-              onClick={async () => {
-                const ok = window.confirm("Are you sure you want to logout? This resets the demo workspace profile.");
-                if (!ok) return;
-                try {
-                  await mockApi.resetWorkspace();
-                  localStorage.removeItem('onb_companyName');
-                  localStorage.removeItem('onb_businessEmail');
-                  localStorage.removeItem('onb_industry');
-                  localStorage.removeItem('onb_catalogData');
-                  localStorage.removeItem('onb_pricingData');
-                  localStorage.removeItem('onb_googleClientId');
-                  localStorage.removeItem('onb_googleClientSecret');
-                  localStorage.removeItem('onb_googleRedirectUri');
-                  window.location.href = '/';
-                } catch (e) {
-                  console.error(e);
-                }
+              onClick={() => {
+                setConfirmModal({
+                  isOpen: true,
+                  title: 'Confirm Logout',
+                  message: 'Are you sure you want to logout? This resets the demo workspace profile and session.',
+                  confirmText: 'Logout',
+                  cancelText: 'Cancel',
+                  type: 'danger',
+                  onConfirm: async () => {
+                    try {
+                      await mockApi.resetWorkspace();
+                      localStorage.removeItem('onb_companyName');
+                      localStorage.removeItem('onb_businessEmail');
+                      localStorage.removeItem('onb_industry');
+                      localStorage.removeItem('onb_catalogData');
+                      localStorage.removeItem('onb_pricingData');
+                      localStorage.removeItem('onb_googleClientId');
+                      localStorage.removeItem('onb_googleClientSecret');
+                      localStorage.removeItem('onb_googleRedirectUri');
+                      localStorage.removeItem('flow_session_id');
+                      window.location.href = '/';
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }
+                });
               }}
               className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-[#ff5f57]/10 text-[#ff5f57]/80 hover:text-[#ff5f57] w-full text-left"
             >
@@ -166,6 +186,19 @@ export function DashboardLayout() {
         </main>
       </div>
       <CommandPalette />
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type={confirmModal.type}
+        onConfirm={() => {
+          confirmModal.onConfirm();
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

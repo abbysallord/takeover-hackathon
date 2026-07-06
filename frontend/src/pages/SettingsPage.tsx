@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { User, Shield, Key, Bell, CreditCard, RotateCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { mockApi } from '../services/mockApi';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -12,6 +13,7 @@ export function SettingsPage() {
   const [workspace, setWorkspace] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // Form Fields
   const [companyName, setCompanyName] = useState('');
@@ -123,10 +125,11 @@ export function SettingsPage() {
     }
   };
 
-  const handleResetWorkspace = async () => {
-    const ok = window.confirm("Are you sure you want to reset your workspace profile? This deletes all catalog files and database columns.");
-    if (!ok) return;
+  const handleResetWorkspace = () => {
+    setIsConfirmOpen(true);
+  };
 
+  const executeReset = async () => {
     try {
       setIsSaving(true);
       await mockApi.resetWorkspace();
@@ -138,12 +141,15 @@ export function SettingsPage() {
       localStorage.removeItem('onb_googleClientId');
       localStorage.removeItem('onb_googleClientSecret');
       localStorage.removeItem('onb_googleRedirectUri');
+      localStorage.removeItem('flow_session_id');
       toast('Workspace reset complete.', 'success');
       window.location.href = '/';
     } catch (e) {
       console.error(e);
       toast('Failed to reset workspace.', 'error');
+    } finally {
       setIsSaving(false);
+      setIsConfirmOpen(false);
     }
   };
 
@@ -379,6 +385,16 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        title="Confirm Reset Workspace"
+        message="Are you sure you want to reset your workspace profile? This deletes all catalog files, connection properties, and clears your browser session."
+        confirmText="Reset Profile"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={executeReset}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </PageTransition>
   );
 }

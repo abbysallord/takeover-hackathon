@@ -132,10 +132,37 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Custom middleware to extract X-Session-ID header and store it in tenant_session_id contextvar
+from fastapi import Request
+from app.models.database import tenant_session_id
+
+@app.middleware("http")
+async def tenant_session_middleware(request: Request, call_next):
+    session_id = request.headers.get("x-session-id")
+    if not session_id:
+        session_id = request.query_params.get("session_id")
+        
+    if session_id:
+        session_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_")).lower()
+        session_id = session_id[:50]
+        
+    token = tenant_session_id.set(session_id)
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        tenant_session_id.reset(token)
+
 # Enable permissive CORS for seamless hackathon local frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://flow.hackarena.dev",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
