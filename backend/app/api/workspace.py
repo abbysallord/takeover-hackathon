@@ -196,10 +196,12 @@ async def oauth_callback(
         return RedirectResponse(url=redirect_url)
     except Exception as e:
         traceback.print_exc()
+        import urllib.parse
+        error_msg = urllib.parse.quote(str(e))
         if workspace and workspace.catalog_data:
-            redirect_url = f"{settings.FRONTEND_URL}/dashboard/settings?error={str(e)}"
+            redirect_url = f"{settings.FRONTEND_URL}/dashboard/settings?error={error_msg}"
         else:
-            redirect_url = f"{settings.FRONTEND_URL}/onboarding?error={str(e)}"
+            redirect_url = f"{settings.FRONTEND_URL}/onboarding?error={error_msg}"
         return RedirectResponse(url=redirect_url)
 
 

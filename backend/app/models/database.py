@@ -19,10 +19,11 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        pool_size=30,
-        max_overflow=15,
+        pool_size=5,
+        max_overflow=5,
         pool_pre_ping=True,
-        pool_recycle=1800
+        pool_recycle=1800,
+        pool_timeout=30
     )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -61,6 +62,8 @@ def get_db(request: Request = None) -> Generator:
                 temp_engine = create_engine(db_path, connect_args={"check_same_thread": False})
                 
                 if session_id not in INITIALIZED_SQLITE_FILES:
+                    # Import models to ensure they are registered with Base before creating tables
+                    import app.models.models
                     # Auto-create tables in SQLite file
                     Base.metadata.create_all(bind=temp_engine)
                     
@@ -103,6 +106,7 @@ def get_db(request: Request = None) -> Generator:
                         conn.execute(text(f"SET search_path TO session_{session_id}"))
                         
                         # 2. Re-create all tables in this session schema if not exist
+                        import app.models.models
                         Base.metadata.create_all(bind=conn)
                         
                         # 3. Seed data for this session
