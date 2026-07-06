@@ -186,9 +186,9 @@ export function WorkflowTimelinePage() {
 
   return (
     <PageTransition>
-      <div className="flex h-[calc(100vh-4rem)] gap-6 -mt-4">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] gap-4 md:gap-6 -mt-4">
         {/* Sidebar List */}
-        <div className="w-80 flex flex-col gap-4 border-r border-white/5 pr-6">
+        <div className="w-full md:w-80 flex flex-col gap-4 md:border-r border-b md:border-b-0 border-white/5 pb-4 md:pb-0 md:pr-6 flex-shrink-0 h-[40%] md:h-auto">
           <h2 className="text-lg font-medium text-white mb-2">Active Workflows</h2>
           
           <div className="relative">
@@ -231,7 +231,7 @@ export function WorkflowTimelinePage() {
         </div>
 
         {/* Main Timeline View */}
-        <div className="flex-1 flex flex-col pl-2 overflow-y-auto">
+        <div className="flex-1 flex flex-col md:pl-2 overflow-y-auto pt-4 md:pt-0">
           {selectedEnquiry ? (
             <div className="max-w-2xl">
               <div className="mb-8">

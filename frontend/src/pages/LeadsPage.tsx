@@ -151,14 +151,14 @@ export function LeadsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col h-full animate-fade-up">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1">Leads Pipeline</h1>
             <p className="text-sm text-white/40">Manage and track your AI-driven sales pipeline.</p>
           </div>
           <button 
             onClick={() => setIsAddOpen(true)}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center sm:justify-start gap-2 transition-colors w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" /> Add Lead
           </button>

@@ -25,7 +25,7 @@ export function DashboardOverview() {
     <PageTransition>
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-0 mb-8">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#3b82f6] flex items-center justify-center shadow-lg">
               <Zap className="w-6 h-6 text-white" />
@@ -35,7 +35,7 @@ export function DashboardOverview() {
               <p className="text-xs text-white/45 mt-0.5">AI Sales Operations Workspace</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
             <button 
               onClick={async () => {
                 setIsLoading(true);
