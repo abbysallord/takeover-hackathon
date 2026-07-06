@@ -22,6 +22,11 @@ class Base(DeclarativeBase):
     pass
 
 
+# In-memory cache of initialized session databases/schemas to avoid running create_all / seed on every request
+INITIALIZED_SCHEMAS = set()
+INITIALIZED_SQLITE_FILES = set()
+
+
 def get_db() -> Generator:
     """Dependency injection helper to yield database sessions with dynamic session-based multi-tenancy."""
     session_id = tenant_session_id.get()
@@ -32,18 +37,27 @@ def get_db() -> Generator:
             db_path = f"sqlite:///session_{session_id}.db"
             temp_engine = create_engine(db_path, connect_args={"check_same_thread": False})
             
-            # Auto-create tables in SQLite file
-            Base.metadata.create_all(bind=temp_engine)
-            
-            TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
-            db = TempSessionLocal()
-            try:
-                # Seed database if empty
-                from app.services.seed_service import seed_database
-                seed_database(db)
-                yield db
-            finally:
-                db.close()
+            if session_id not in INITIALIZED_SQLITE_FILES:
+                # Auto-create tables in SQLite file
+                Base.metadata.create_all(bind=temp_engine)
+                
+                TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
+                db = TempSessionLocal()
+                try:
+                    # Seed database if empty
+                    from app.services.seed_service import seed_database
+                    seed_database(db)
+                    INITIALIZED_SQLITE_FILES.add(session_id)
+                    yield db
+                finally:
+                    db.close()
+            else:
+                TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
+                db = TempSessionLocal()
+                try:
+                    yield db
+                finally:
+                    db.close()
         else:
             db = SessionLocal()
             try:
@@ -59,19 +73,25 @@ def get_db() -> Generator:
                 from sqlalchemy import text
                 conn = db.connection()
                 
-                # 1. Create session schema if not exist
-                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
-                conn.execute(text(f"SET search_path TO session_{session_id}"))
-                
-                # 2. Re-create all tables in this session schema if not exist
-                Base.metadata.create_all(bind=conn)
+                if session_id not in INITIALIZED_SCHEMAS:
+                    # 1. Create session schema if not exist
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
+                    conn.execute(text(f"SET search_path TO session_{session_id}"))
+                    
+                    # 2. Re-create all tables in this session schema if not exist
+                    Base.metadata.create_all(bind=conn)
+                    
+                    # 3. Seed data for this session
+                    from app.services.seed_service import seed_database
+                    seed_database(db)
+                    
+                    INITIALIZED_SCHEMAS.add(session_id)
+                else:
+                    # Extremely fast schema selection
+                    conn.execute(text(f"SET search_path TO session_{session_id}"))
                 
                 # Ensure session also uses search path
                 db.execute(text(f"SET search_path TO session_{session_id}"))
-                
-                # 3. Seed data for this session
-                from app.services.seed_service import seed_database
-                seed_database(db)
                 
                 yield db
             except Exception as e:
