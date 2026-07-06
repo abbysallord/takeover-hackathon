@@ -45,12 +45,13 @@ def main():
     print("\n[1/7] Launching FastAPI backend server on port 8009...")
     env = os.environ.copy()
     env["DATABASE_URL"] = "sqlite:///./takeover_test.db"
+    env["PYTHONUNBUFFERED"] = "1"
     
     # Clean old test db
     if os.path.exists("takeover_test.db"):
         os.remove("takeover_test.db")
         
-    server_log = open("test_server.log", "w")
+    server_log = open("test_server.log", "w", buffering=1)
     server_process = subprocess.Popen(
         ["venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(PORT)],
         stdout=server_log,
@@ -58,8 +59,8 @@ def main():
         env=env
     )
     
-    # Wait for server to boot up
-    time.sleep(5)
+    # Wait for server to boot up (including loading sentence-transformer RAG model weights)
+    time.sleep(15)
     
     if server_process.poll() is not None:
         print("\033[91m[ERROR] Failed to start backend server. Make sure dependencies are installed and port 8009 is free.\033[0m")
@@ -73,8 +74,10 @@ def main():
     try:
         # 2. Test Health Endpoint
         status, body = make_request("/health")
-        health_ok = status == 200 and body.get("status") == "ok"
-        print_result("GET /health", health_ok, f"Status: {status}, Service: {body.get('service', 'unknown')}")
+        print(f"DEBUG: status={status}, body={body}, type={type(body)}")
+        health_ok = status == 200 and isinstance(body, dict) and body.get("status") == "ok"
+        service_name = body.get('service', 'unknown') if isinstance(body, dict) else str(body)
+        print_result("GET /health", health_ok, f"Status: {status}, Service: {service_name}")
 
         # 3. Test Dashboard Overview (Initial seeded state)
         status, body = make_request("/dashboard")
@@ -131,7 +134,8 @@ def main():
             approve_ok = status == 200 and approval_res.get("status") == "APPROVED"
             print_result("POST /approvals/{id} (Approved)", approve_ok, f"Status: {approval_res.get('status')}")
 
-            # 8. Verify Workflow Completed successfully
+            # 8. Verify Workflow Completed successfully (wait for background tasks to finish)
+            time.sleep(3)
             status, workflow_final = make_request(f"/workflows/{wf_id}")
             wf_final_ok = status == 200 and workflow_final.get("status") == "COMPLETED"
             print_result("Verify Workflow Completed", wf_final_ok, f"Final Status: {workflow_final.get('status')}")

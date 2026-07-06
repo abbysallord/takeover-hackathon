@@ -104,14 +104,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create SQLite database tables if they do not exist
     Base.metadata.create_all(bind=engine)
 
-    # Run dynamic Postgres alter statement for onboarding_completed column if exists
+    # Run dynamic dialect-agnostic alter statement for onboarding_completed column
     try:
         from sqlalchemy import text
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;"))
+            if DATABASE_URL.startswith("sqlite"):
+                try:
+                    conn.execute(text("ALTER TABLE workspaces ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE;"))
+                except Exception as sqlite_err:
+                    if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
+                        pass
+            else:
+                conn.execute(text("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;"))
             print("Successfully verified onboarding_completed column exists in workspaces table.")
     except Exception as e:
-        print(f"⚠️ Non-critical migration warning: {e}")
+        print(f"⚠️ Migration warning: {e}")
 
     # Run database seed service
     db = SessionLocal()

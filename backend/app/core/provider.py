@@ -151,7 +151,6 @@ class GroqProvider(LLMProvider):
             "delivery status" in subject_lower or
             "newsletter" in subject_lower or
             "subscribed" in subject_lower or
-            "starkindustries" in sender_lower or  # Stark Industries is a mock demo seed; ignore if real Gmail pulls it
             "pinterest" in sender_lower or
             "unstop" in sender_lower or
             "codeforces" in sender_lower
