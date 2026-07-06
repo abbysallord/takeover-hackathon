@@ -11,8 +11,9 @@ router = APIRouter(tags=["Knowledge"])
 @router.get("/knowledge/files", response_model=List[Dict[str, Any]])
 def get_knowledge_files() -> List[Dict[str, Any]]:
     """Lists all markdown technical and policy documents in the local RAG knowledge base."""
+    from app.services.rag_service import rag_service
     files = []
-    knowledge_dir = "knowledge"
+    knowledge_dir = str(rag_service.knowledge_root)
     if not os.path.exists(knowledge_dir):
         return []
 
@@ -45,7 +46,8 @@ async def upload_knowledge_file(
         )
 
     # Place files under knowledge/products, knowledge/pricing, knowledge/policies, or knowledge/general
-    target_dir = os.path.join("knowledge", category)
+    from app.services.rag_service import rag_service
+    target_dir = os.path.join(rag_service.knowledge_root, category)
     os.makedirs(target_dir, exist_ok=True)
     file_path = os.path.join(target_dir, file.filename)
 
@@ -78,7 +80,8 @@ def delete_knowledge_file(category: str, filename: str) -> Dict[str, Any]:
     category = "".join(c for c in category if c.isalnum() or c in ("-", "_"))
     filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_"))
     
-    file_path = os.path.join("knowledge", category, filename)
+    from app.services.rag_service import rag_service
+    file_path = os.path.join(rag_service.knowledge_root, category, filename)
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

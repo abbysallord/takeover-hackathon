@@ -69,18 +69,20 @@ def setup_workspace(
     
     # Save the uploaded documents directly into the RAG directory structure
     try:
+        from app.services.rag_service import rag_service
+        root = rag_service.knowledge_root
+        
         if data.catalog_data:
-            os.makedirs("knowledge/products", exist_ok=True)
-            with open("knowledge/products/catalog.md", "w", encoding="utf-8") as f:
+            os.makedirs(root / "products", exist_ok=True)
+            with open(root / "products/catalog.md", "w", encoding="utf-8") as f:
                 f.write(data.catalog_data)
                 
         if data.pricing_data:
-            os.makedirs("knowledge/pricing", exist_ok=True)
-            with open("knowledge/pricing/sheets.md", "w", encoding="utf-8") as f:
+            os.makedirs(root / "pricing", exist_ok=True)
+            with open(root / "pricing/sheets.md", "w", encoding="utf-8") as f:
                 f.write(data.pricing_data)
                 
         # Force the RAG service to re-index files on the next retrieval query
-        from app.services.rag_service import rag_service
         rag_service._is_initialized = False
         
     except Exception as e:

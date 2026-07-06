@@ -21,10 +21,44 @@ class RAGService:
     """Lightweight in-memory vector store and retrieval-augmented generation document parser."""
 
     def __init__(self, knowledge_root: Optional[str] = None) -> None:
-        self.knowledge_root = Path(knowledge_root or Path(__file__).resolve().parent.parent.parent / "knowledge")
+        self.base_knowledge_root = Path(knowledge_root or Path(__file__).resolve().parent.parent.parent / "knowledge")
         self._model: Optional[Any] = None
-        self.documents: List[Dict[str, Any]] = []
-        self._is_initialized = False
+        self.documents_by_session: Dict[Optional[str], List[Dict[str, Any]]] = {}
+        self.initialized_sessions: Dict[Optional[str], bool] = {}
+
+    @property
+    def knowledge_root(self) -> Path:
+        from app.models.database import tenant_session_id
+        session_id = tenant_session_id.get()
+        if session_id:
+            return self.base_knowledge_root / f"session_{session_id}"
+        return self.base_knowledge_root
+
+    @property
+    def documents(self) -> List[Dict[str, Any]]:
+        from app.models.database import tenant_session_id
+        sid = tenant_session_id.get()
+        if sid not in self.documents_by_session:
+            self.documents_by_session[sid] = []
+        return self.documents_by_session[sid]
+
+    @documents.setter
+    def documents(self, value: List[Dict[str, Any]]) -> None:
+        from app.models.database import tenant_session_id
+        sid = tenant_session_id.get()
+        self.documents_by_session[sid] = value
+
+    @property
+    def _is_initialized(self) -> bool:
+        from app.models.database import tenant_session_id
+        sid = tenant_session_id.get()
+        return self.initialized_sessions.get(sid, False)
+
+    @_is_initialized.setter
+    def _is_initialized(self, value: bool) -> None:
+        from app.models.database import tenant_session_id
+        sid = tenant_session_id.get()
+        self.initialized_sessions[sid] = value
 
     @property
     def model(self) -> Any:
