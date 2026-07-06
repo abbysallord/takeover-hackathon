@@ -1,4 +1,5 @@
 from typing import Any, Dict
+from sqlalchemy.orm import Session
 from app.tools.base import BaseTool
 
 
@@ -11,28 +12,50 @@ class InventoryTool(BaseTool):
     def description(self) -> str:
         return "Checks current stock levels in the warehouse database for a specific product."
 
-    def check_stock(self, product: str, quantity: int) -> Dict[str, Any]:
-        """Check if requested product and quantity is in stock.
+    def check_stock(self, db: Session, product: str, quantity: int) -> Dict[str, Any]:
+        """Check if requested product and quantity is in stock."""
+        prod = product.lower().strip()
+        from app.models.models import Workspace
+        import re
 
-        Currently mocked for hackathon demo. Returns stock levels and estimated shipping times.
-        """
-        # Lowercase for simple checking
-        prod = product.lower()
+        workspace = db.query(Workspace).first()
+        matched_stock = None
 
-        # Mock stock data
-        stock_db = {
-            "widget-a": 1500,
-            "widget-b": 80,
-            "widget-c": 0,  # Out of stock
-            "server-rack": 15,
-        }
-
-        # Find partial matches
-        matched_stock = 500  # Default fallback if product not in list
-        for key, val in stock_db.items():
-            if key in prod:
-                matched_stock = val
+        # Try to parse stock count from catalog/pricing text
+        for source_text in [workspace.catalog_data, workspace.pricing_data] if workspace else []:
+            if not source_text:
+                continue
+            lines = source_text.split("\n")
+            for line in lines:
+                if prod in line.lower() or any(word in line.lower() for word in prod.split()):
+                    # Look for keywords like units, qty, stock (e.g. 100 units in stock)
+                    matches = re.findall(r'(\d+)\s*(?:units|qty|stock|in stock|available|items)', line.lower())
+                    if matches:
+                        matched_stock = int(matches[0])
+                        break
+                    # Fallback to any whole number on the line
+                    matches_all = re.findall(r'\b(\d+)\b', line)
+                    for m in matches_all:
+                        val = int(m)
+                        if val > 0 and val < 100000:
+                            matched_stock = val
+                            break
+            if matched_stock is not None:
                 break
+
+        if matched_stock is None:
+            # Fallback static DB
+            stock_db = {
+                "widget-a": 1500,
+                "widget-b": 80,
+                "widget-c": 0,
+                "server-rack": 15,
+            }
+            matched_stock = 500  # Default fallback if product not in list
+            for key, val in stock_db.items():
+                if key in prod:
+                    matched_stock = val
+                    break
 
         if matched_stock >= quantity:
             return {
@@ -45,6 +68,6 @@ class InventoryTool(BaseTool):
             return {
                 "in_stock": False,
                 "available_quantity": matched_stock,
-                "estimated_delivery_days": 14,  # Re-order delay
+                "estimated_delivery_days": 14,
                 "message": f"Product '{product}' is out of stock or insufficient. Requested {quantity}, available {matched_stock}.",
             }

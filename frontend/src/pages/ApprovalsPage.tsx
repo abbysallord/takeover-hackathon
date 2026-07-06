@@ -12,6 +12,7 @@ export function ApprovalsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<number | null>(null);
+  const [expandedApprovalId, setExpandedApprovalId] = useState<number | null>(null);
 
   const fetchApprovals = async () => {
     try {
@@ -124,38 +125,84 @@ export function ApprovalsPage() {
             </div>
           ) : (
             approvals.map((item) => (
-              <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.status === 'pending' ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' : 'bg-[#28c840]/10 text-[#28c840]'}`}>
-                    {item.status === 'pending' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-white">{item.type} <span className="text-white/40">for</span> {item.client}</div>
-                    <div className="text-xs text-white/40 mt-1">
-                      Value: <span className="text-white font-medium mr-3">{item.amount}</span>
-                      AI Confidence Score: <span className={item.confidence > 95 ? 'text-[#28c840]' : 'text-[#ff9f0a]'}>{item.confidence}%</span>
+              <div 
+                key={item.id} 
+                className="bg-white/5 border border-white/10 rounded-xl p-5 flex flex-col gap-4 hover:border-white/20 transition-all text-left"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div 
+                    onClick={() => setExpandedApprovalId(expandedApprovalId === item.id ? null : item.id)}
+                    className="flex items-center gap-4 cursor-pointer select-none group flex-1"
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.status === 'pending' ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' : 'bg-[#28c840]/10 text-[#28c840]'}`}>
+                      {item.status === 'pending' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                     </div>
+                    <div>
+                      <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                        <span>{item.type} for {item.client}</span>
+                        <span className="text-[10px] text-white/35 font-normal tracking-wide">(Click to {expandedApprovalId === item.id ? 'collapse' : 'view details'})</span>
+                      </div>
+                      <div className="text-xs text-white/45 mt-1">
+                        Value: <span className="text-white font-medium mr-3">{item.amount}</span>
+                        AI Confidence Score: <span className={item.confidence > 95 ? 'text-[#28c840]' : 'text-[#ff9f0a]'}>{item.confidence}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {item.status === 'pending' && (
+                      <>
+                        <button 
+                          onClick={() => handleRejectClick(item.id)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#ff5f57]/10 hover:bg-[#ff5f57]/20 text-[#ff5f57] text-xs font-medium border border-[#ff5f57]/20 transition-colors"
+                        >
+                          <XCircle className="w-4 h-4" /> Reject
+                        </button>
+                        <button 
+                          onClick={() => handleApproveClick(item.id)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-medium transition-colors"
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Approve
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  {item.status === 'pending' && (
-                    <>
-                      <button 
-                        onClick={() => handleRejectClick(item.id)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#ff5f57]/10 hover:bg-[#ff5f57]/20 text-[#ff5f57] text-xs font-medium border border-[#ff5f57]/20 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" /> Reject
-                      </button>
-                      <button 
-                        onClick={() => handleApproveClick(item.id)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-xs font-medium transition-colors"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Approve
-                      </button>
-                    </>
-                  )}
-                </div>
+                {expandedApprovalId === item.id && (
+                  <div className="border-t border-white/5 pt-4 mt-2 text-xs animate-fade-in">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-semibold text-white/80">Quotation Summary: {item.quotation?.quote_number || 'N/A'}</span>
+                      <span className="text-white/40">Date: {item.quotation ? new Date(item.quotation.created_at).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                    {item.quotation && item.quotation.items && item.quotation.items.length > 0 ? (
+                      <div className="bg-black/20 rounded-xl overflow-hidden border border-white/5">
+                        <table className="w-full border-collapse text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] uppercase font-bold text-white/45 tracking-wider">
+                              <th className="px-4 py-2.5">Product / Item Description</th>
+                              <th className="px-4 py-2.5 text-right w-20">Quantity</th>
+                              <th className="px-4 py-2.5 text-right w-28">Unit Price</th>
+                              <th className="px-4 py-2.5 text-right w-28">Line Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {item.quotation.items.map((line: any, idx: number) => (
+                              <tr key={idx} className="border-b border-white/[0.02] text-white/70 hover:text-white transition-colors">
+                                <td className="px-4 py-2.5 font-medium">{line.product}</td>
+                                <td className="px-4 py-2.5 text-right">{line.quantity}</td>
+                                <td className="px-4 py-2.5 text-right">${typeof line.unit_price === 'number' ? line.unit_price.toFixed(2) : line.unit_price}</td>
+                                <td className="px-4 py-2.5 text-right font-semibold text-white">${typeof line.total === 'number' ? line.total.toFixed(2) : line.total}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-white/40 italic py-2">No detailed line items linked to this quote.</div>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}

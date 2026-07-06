@@ -152,7 +152,8 @@ export const mockApi = {
           amount: amount,
           confidence: 98,
           status: app.status.toLowerCase(),
-          suggestedReply: app.suggested_reply || null
+          suggestedReply: app.suggested_reply || null,
+          quotation: app.quotation || null
         };
       });
     } catch (e) {

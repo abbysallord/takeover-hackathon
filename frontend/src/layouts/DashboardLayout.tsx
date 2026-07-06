@@ -39,7 +39,7 @@ export function DashboardLayout() {
 
   const checkUnreadNotifications = () => {
     mockApi.getNotifications().then(notifs => {
-      const unread = notifs.some((n: any) => !n.is_read);
+      const unread = notifs.some((n: any) => !n.read);
       setHasUnreadNotifications(unread);
     }).catch(e => console.error(e));
   };

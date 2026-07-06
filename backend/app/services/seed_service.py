@@ -18,6 +18,11 @@ def seed_database(db: Session) -> None:
 
     Uses dynamic dates to prevent hardcoded time dependency failures.
     """
+    # Disable dummy database seeding for session-based workspace tenants to prevent dummy customers/emails leaks
+    from app.models.database import tenant_session_id
+    if tenant_session_id.get():
+        return
+
     # Safeguard to prevent duplicating seed runs if user is already onboarded
     from app.models.models import Workspace
     if db.query(Workspace).first() is not None:

@@ -252,12 +252,12 @@ class WorkflowEngine:
         elif tool_name == "inventory_tool":
             product = tool_args.get("product", "")
             quantity = tool_args.get("quantity", 1)
-            return self.inventory_tool.check_stock(product, quantity)
+            return self.inventory_tool.check_stock(db, product, quantity)
             
         elif tool_name == "pricing_tool":
             product = tool_args.get("product", "")
             quantity = tool_args.get("quantity", 1)
-            return self.pricing_tool.get_pricing(product, quantity)
+            return self.pricing_tool.get_pricing(db, product, quantity)
             
         elif tool_name == "generate_quote_tool":
             product_name = tool_args.get("product_name", "Widget A")

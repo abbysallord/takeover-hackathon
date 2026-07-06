@@ -24,7 +24,7 @@ function MainRoutes() {
   
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Routes>
         <Route path="/" element={<Hero />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
