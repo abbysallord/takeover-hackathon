@@ -27,9 +27,13 @@ class InventoryTool(BaseTool):
                 continue
             lines = source_text.split("\n")
             for line in lines:
-                if prod in line.lower() or any(word in line.lower() for word in prod.split()):
+                line_lower = line.lower()
+                search_words = [w for w in prod.split() if len(w) > 1]
+                if not search_words:
+                    search_words = [prod]
+                if prod in line_lower or all(re.search(rf"\b{re.escape(w)}\b", line_lower) for w in search_words):
                     # Look for keywords like units, qty, stock (e.g. 100 units in stock)
-                    matches = re.findall(r'(\d+)\s*(?:units|qty|stock|in stock|available|items)', line.lower())
+                    matches = re.findall(r'(\d+)\s*(?:units|qty|stock|in stock|available|items)', line_lower)
                     if matches:
                         matched_stock = int(matches[0])
                         break

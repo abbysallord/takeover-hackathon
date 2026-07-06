@@ -103,3 +103,27 @@ def delete_knowledge_file(category: str, filename: str) -> Dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete file: {str(e)}",
         )
+
+
+@router.get("/knowledge/files/{category}/{filename}")
+def get_knowledge_file_content(category: str, filename: str) -> Dict[str, Any]:
+    """Retrieves the raw text content of a document from the knowledge base."""
+    category = "".join(c for c in category if c.isalnum() or c in ("-", "_"))
+    filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_"))
+    
+    from app.services.rag_service import rag_service
+    file_path = os.path.join(rag_service.knowledge_root, category, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File {filename} not found in category {category}.",
+        )
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"content": content}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read file: {str(e)}",
+        )

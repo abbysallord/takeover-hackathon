@@ -424,7 +424,7 @@ class WorkflowEngine:
             
             lead = Lead(
                 customer_id=customer.id,
-                status="QUALIFIED_LEAD",
+                status="QUOTATION_SENT",
                 value=value
             )
             db.add(lead)

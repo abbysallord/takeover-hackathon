@@ -482,6 +482,18 @@ export const mockApi = {
     }
   },
 
+  getKnowledgeFileContent: async (category: string, filename: string): Promise<string> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/files/${category}/${filename}`);
+      if (!res.ok) throw new Error("Fetch file content failed");
+      const data = await res.json();
+      return data.content;
+    } catch (e) {
+      console.error("Error reading file:", e);
+      return "Failed to load document content.";
+    }
+  },
+
   getAnalytics: async (): Promise<any> => {
     try {
       const res = await fetch(`${API_BASE}/analytics`);

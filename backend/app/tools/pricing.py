@@ -30,7 +30,11 @@ class PricingTool(BaseTool):
                 continue
             lines = source_text.split("\n")
             for line in lines:
-                if prod in line.lower() or any(word in line.lower() for word in prod.split()):
+                line_lower = line.lower()
+                search_words = [w for w in prod.split() if len(w) > 1]
+                if not search_words:
+                    search_words = [prod]
+                if prod in line_lower or all(re.search(rf"\b{re.escape(w)}\b", line_lower) for w in search_words):
                     # Extract dollar price (e.g. $10.00)
                     matches = re.findall(r'\$\s*(\d+(?:\.\d{1,2})?)', line)
                     if not matches:
@@ -41,7 +45,9 @@ class PricingTool(BaseTool):
                             if val > 0.0:
                                 base_price = val
                                 # Clean product label
-                                matched_product = line.split(":")[0].split("-")[0].strip().title()
+                                matched_product = line.split(":")[0].split("-")[0].strip().replace("-", " ").title()
+                                if matched_product.startswith("*") or matched_product.startswith("-"):
+                                    matched_product = matched_product.lstrip("*- ").strip()
                                 break
                         except ValueError:
                             pass

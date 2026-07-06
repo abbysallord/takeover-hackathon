@@ -18,6 +18,23 @@ export function KnowledgePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [category, setCategory] = useState('products');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [viewDoc, setViewDoc] = useState<any | null>(null);
+  const [viewContent, setViewContent] = useState<string>('');
+  const [isViewLoading, setIsViewLoading] = useState(false);
+
+  const handleViewDoc = async (doc: any) => {
+    try {
+      setIsViewLoading(true);
+      setViewDoc(doc);
+      const content = await mockApi.getKnowledgeFileContent(doc.category, doc.name);
+      setViewContent(content);
+    } catch (e) {
+      console.error(e);
+      setViewContent("Failed to load file content.");
+    } finally {
+      setIsViewLoading(false);
+    }
+  };
 
   const loadDocuments = async () => {
     try {
@@ -177,13 +194,18 @@ export function KnowledgePage() {
               </div>
             ) : (
               docs.map((doc, i) => (
-                <div key={i} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                <div 
+                  key={i} 
+                  onClick={() => handleViewDoc(doc)}
+                  className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Click to view file content"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
                       <FileText className="w-5 h-5 text-[#3b82f6]" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-white">{doc.name}</div>
+                      <div className="text-sm font-medium text-white hover:text-blue-400 transition-colors">{doc.name}</div>
                       <div className="text-[10px] text-white/40 mt-1">
                         Category: <span className="uppercase text-white/60 font-semibold">{doc.category}</span> • Size: {(doc.size_bytes / 1024).toFixed(1)} KB
                       </div>
@@ -235,6 +257,28 @@ export function KnowledgePage() {
                 <option value="general">General Sales FAQs</option>
               </select>
             </div>
+          </div>
+        </Dialog>
+
+        {/* Document Viewer Dialog */}
+        <Dialog
+          isOpen={!!viewDoc}
+          onClose={() => { setViewDoc(null); setViewContent(''); }}
+          title={viewDoc ? `${viewDoc.name} (${viewDoc.category.toUpperCase()})` : "Document Viewer"}
+          confirmText="Close"
+          onConfirm={() => { setViewDoc(null); setViewContent(''); }}
+        >
+          <div className="text-left max-h-[60vh] overflow-y-auto pr-1">
+            {isViewLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-xs text-white/40">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Reading document from database RAG path...</span>
+              </div>
+            ) : (
+              <pre className="text-[11px] text-white/80 font-mono whitespace-pre-wrap leading-relaxed bg-black/30 p-4 rounded-xl border border-white/5">
+                {viewContent}
+              </pre>
+            )}
           </div>
         </Dialog>
       </div>
