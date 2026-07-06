@@ -30,7 +30,10 @@ def run_workflow_background(db_session_id: str, workflow_id: int):
         print(f"Error executing background workflow: {e}")
     finally:
         db.close()
-        tenant_session_id.reset(token)
+        try:
+            tenant_session_id.reset(token)
+        except ValueError:
+            pass
 
 
 @router.get("/approvals", response_model=List[ApprovalResponse])

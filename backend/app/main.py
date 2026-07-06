@@ -80,7 +80,10 @@ async def gmail_polling_task():
                         finally:
                             db.close()
                 finally:
-                    tenant_session_id.reset(token)
+                    try:
+                        tenant_session_id.reset(token)
+                    except ValueError:
+                        pass
 
             # If there are no sessions yet, poll the default database just in case
             if not tenant_sessions:
@@ -174,7 +177,10 @@ async def tenant_session_middleware(request: Request, call_next):
         response = await call_next(request)
         return response
     finally:
-        tenant_session_id.reset(token)
+        try:
+            tenant_session_id.reset(token)
+        except ValueError:
+            pass
 
 # Enable permissive CORS for seamless hackathon local frontend integration
 app.add_middleware(

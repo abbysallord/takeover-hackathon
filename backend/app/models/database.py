@@ -147,4 +147,7 @@ def get_db(request: Request = None) -> Generator:
                 yield db
                 db.close()
     finally:
-        tenant_session_id.reset(token)
+        try:
+            tenant_session_id.reset(token)
+        except ValueError:
+            pass
