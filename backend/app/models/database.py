@@ -69,12 +69,17 @@ def get_db(request: Request = None) -> Generator:
             if session_id:
                 try:
                     from sqlalchemy import text
+                    conn = db.connection()
+                    
                     # 1. Create session schema if not exist
-                    db.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
-                    db.execute(text(f"SET search_path TO session_{session_id}"))
+                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
+                    conn.execute(text(f"SET search_path TO session_{session_id}"))
                     
                     # 2. Re-create all tables in this session schema if not exist
-                    Base.metadata.create_all(bind=db.get_bind())
+                    Base.metadata.create_all(bind=conn)
+                    
+                    # Ensure session also uses search path
+                    db.execute(text(f"SET search_path TO session_{session_id}"))
                     
                     # 3. Seed data for this session
                     from app.services.seed_service import seed_database
