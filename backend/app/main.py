@@ -1,4 +1,10 @@
 import asyncio
+import sys
+
+# Ensure stdout uses UTF-8 to prevent crash when printing emojis on Windows
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI
