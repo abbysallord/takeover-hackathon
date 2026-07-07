@@ -64,6 +64,8 @@ def get_db(request: Request = None) -> Generator:
             session_id = request.query_params.get("session_id")
             
     if session_id:
+        if session_id.startswith("session_"):
+            session_id = session_id[8:]
         session_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_")).lower()
         session_id = session_id[:50]
 
