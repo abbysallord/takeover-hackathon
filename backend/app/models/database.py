@@ -54,6 +54,53 @@ INITIALIZED_SCHEMAS = set()
 INITIALIZED_SQLITE_FILES = set()
 
 
+def migrate_schema_columns(db, session_id: str) -> None:
+    """Safely adds missing columns (like passcode_hash) to existing tables in tenant schema."""
+    from sqlalchemy import text, inspect
+    from app.models.models import Workspace, Email
+    try:
+        inspector = inspect(db.bind)
+        schema_name = f"session_{session_id}" if session_id else None
+        
+        # 1. Migrate workspaces table
+        existing_cols = {col['name'] for col in inspector.get_columns('workspaces', schema=schema_name)}
+        for column in Workspace.__table__.columns:
+            col_name = column.name
+            if col_name not in existing_cols:
+                col_type = str(column.type)
+                # Map to PostgreSQL/SQLite types
+                sql_type = "VARCHAR(255)"
+                if "BOOLEAN" in col_type.upper():
+                    sql_type = "BOOLEAN DEFAULT FALSE"
+                elif "TEXT" in col_type.upper():
+                    sql_type = "TEXT"
+                elif "TIMESTAMP" in col_type.upper() or "DATETIME" in col_type.upper():
+                    sql_type = "TIMESTAMP"
+                elif "INTEGER" in col_type.upper():
+                    sql_type = "INTEGER"
+                
+                table_prefix = f"session_{session_id}." if session_id else ""
+                sql = f"ALTER TABLE {table_prefix}workspaces ADD COLUMN {col_name} {sql_type};"
+                db.execute(text(sql))
+                db.commit()
+                print(f"✅ Migrated column {col_name} for workspaces in {schema_name or 'SQLite'}")
+
+        # 2. Migrate emails table
+        existing_email_cols = {col['name'] for col in inspector.get_columns('emails', schema=schema_name)}
+        for column in Email.__table__.columns:
+            col_name = column.name
+            if col_name not in existing_email_cols:
+                col_type = str(column.type)
+                sql_type = "TEXT" if ("TEXT" in col_type.upper() or "VARCHAR" in col_type.upper()) else col_type
+                table_prefix = f"session_{session_id}." if session_id else ""
+                sql = f"ALTER TABLE {table_prefix}emails ADD COLUMN {col_name} {sql_type};"
+                db.execute(text(sql))
+                db.commit()
+                print(f"✅ Migrated column {col_name} for emails in {schema_name or 'SQLite'}")
+    except Exception as e:
+        print(f"⚠️ Error migrating columns for session_{session_id}: {e}")
+
+
 def get_db(request: Request = None) -> Generator:
     """Dependency injection helper to yield database sessions with dynamic session-based multi-tenancy."""
     # First, try to inherit the session ID set by the middleware
@@ -128,6 +175,9 @@ def get_db(request: Request = None) -> Generator:
                             import app.models.models
                             tenant_conn = conn.execution_options(schema_translate_map={None: f"session_{session_id}"})
                             Base.metadata.create_all(bind=tenant_conn)
+                            
+                            # Migrate columns in case tables already exist but are missing columns (like passcode_hash)
+                            migrate_schema_columns(db, session_id)
                             
                             # 3. Seed data for this session
                             from app.services.seed_service import seed_database

@@ -73,6 +73,12 @@ async def gmail_polling_task():
                     else:
                         db = SessionLocal()
                         try:
+                            # Run schema column migrations for older workspaces in background
+                            from app.models.database import INITIALIZED_SCHEMAS, migrate_schema_columns
+                            if clean_tenant not in INITIALIZED_SCHEMAS:
+                                migrate_schema_columns(db, clean_tenant)
+                                INITIALIZED_SCHEMAS.add(clean_tenant)
+                                
                             db.execute(text(f"SET search_path TO session_{clean_tenant}"))
                             await poll_gmail_inbox(db)
                         except Exception as e:
