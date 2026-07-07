@@ -54,13 +54,14 @@ INITIALIZED_SQLITE_FILES = set()
 
 def get_db(request: Request = None) -> Generator:
     """Dependency injection helper to yield database sessions with dynamic session-based multi-tenancy."""
-    session_id = None
-    if request:
+    # First, try to inherit the session ID set by the middleware
+    session_id = tenant_session_id.get()
+    
+    # If not set by middleware, try to extract it from headers/query params
+    if not session_id and request:
         session_id = request.headers.get("x-session-id")
         if not session_id:
             session_id = request.query_params.get("session_id")
-        if not session_id:
-            session_id = request.query_params.get("state")
             
     if session_id:
         session_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_")).lower()

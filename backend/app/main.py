@@ -168,6 +168,13 @@ async def tenant_session_middleware(request: Request, call_next):
     if not session_id:
         session_id = request.query_params.get("session_id")
         
+    # Handle OAuth callback state param
+    if not session_id and request.url.path == "/workspace/oauth-callback":
+        session_id = request.query_params.get("state")
+        if session_id and session_id.startswith("session_"):
+            # Strip the 'session_' prefix if present so we don't double prefix it
+            session_id = session_id[8:]
+        
     if session_id:
         session_id = "".join(c for c in session_id if c.isalnum() or c in ("-", "_")).lower()
         session_id = session_id[:50]

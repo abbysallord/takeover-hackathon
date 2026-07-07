@@ -192,10 +192,12 @@ async def oauth_callback(
                     "email", workspace.business_email
                 )
 
+        # Store the boolean flag before commit to prevent lazy-loading after transaction is closed
+        has_catalog = bool(workspace.catalog_data)
         db.commit()
+        
         # Redirect back to the frontend: if catalog exists, redirect to settings; else to onboarding
-        # Redirect back to the frontend: if catalog exists, redirect to settings; else to onboarding
-        if workspace.catalog_data:
+        if has_catalog:
             redirect_url = f"{settings.FRONTEND_URL}/dashboard/settings?gmail_connected=true"
         else:
             redirect_url = f"{settings.FRONTEND_URL}/onboarding?gmail_connected=true"
@@ -204,7 +206,8 @@ async def oauth_callback(
         traceback.print_exc()
         import urllib.parse
         error_msg = urllib.parse.quote(str(e))
-        if workspace and workspace.catalog_data:
+        has_catalog = bool(workspace.catalog_data) if workspace else False
+        if has_catalog:
             redirect_url = f"{settings.FRONTEND_URL}/dashboard/settings?error={error_msg}"
         else:
             redirect_url = f"{settings.FRONTEND_URL}/onboarding?error={error_msg}"
