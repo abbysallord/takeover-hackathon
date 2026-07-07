@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Mail, Database, FileText, CheckCircle2, ArrowRight, ArrowLeft, Building2, RotateCw } from 'lucide-react';
+import { Sparkles, Mail, Database, FileText, CheckCircle2, ArrowRight, ArrowLeft, Building2, RotateCw, Eye, EyeOff } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
 import { mockApi } from '../services/mockApi';
@@ -11,7 +11,9 @@ export function OnboardingPage() {
   const { toast } = useToast();
   
   const [isResumeOpen, setIsResumeOpen] = useState(false);
-  const [enteredSessionId, setEnteredSessionId] = useState('');
+  const [resumeSlug, setResumeSlug] = useState('');
+  const [resumePasscode, setResumePasscode] = useState('');
+  const [showResumePasscode, setShowResumePasscode] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState('');
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function OnboardingPage() {
   const [workspacePasscode, setWorkspacePasscode] = useState(() => localStorage.getItem('onb_workspacePasscode') || '');
   const [isSlugAvailable, setIsSlugAvailable] = useState<boolean | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
+  const [showPasscode, setShowPasscode] = useState(false);
 
   // Check slug availability on input change
   useEffect(() => {
@@ -316,40 +319,49 @@ export function OnboardingPage() {
     }
   };
   const handleResumeSession = async () => {
-    if (!enteredSessionId || !enteredSessionId.trim()) {
-      toast('Please enter a Workspace Session Key.', 'error');
+    if (!resumeSlug || !resumeSlug.trim()) {
+      toast('Please enter your Workspace URL Name (Slug).', 'error');
+      return;
+    }
+    if (!resumePasscode || !resumePasscode.trim()) {
+      toast('Please enter your Workspace PIN Passcode.', 'error');
       return;
     }
 
-    const cleanKey = enteredSessionId.trim();
+    const cleanSlug = resumeSlug.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
     const originalSessionId = localStorage.getItem('flow_session_id');
 
     try {
       setLoading(true);
-      // Temporarily swap session ID to test existence
-      localStorage.setItem('flow_session_id', cleanKey);
+      const success = await mockApi.resumeWorkspace(cleanSlug, resumePasscode.trim());
       
-      const workspace = await mockApi.getWorkspace();
-      
-      if (workspace) {
-        clearOnboardingCache();
-        toast('Workspace Session restored successfully!', 'success');
-        setIsResumeOpen(false);
+      if (success) {
+        const targetSessionId = `session_${cleanSlug}`;
+        localStorage.setItem('flow_session_id', targetSessionId);
         
-        if (workspace.onboarding_completed) {
-          navigate('/dashboard');
+        const workspace = await mockApi.getWorkspace();
+        if (workspace) {
+          clearOnboardingCache();
+          toast('Workspace Session restored successfully!', 'success');
+          setIsResumeOpen(false);
+          
+          if (workspace.onboarding_completed) {
+            navigate('/dashboard');
+          } else {
+            setCompanyName(workspace.company_name || '');
+            setBusinessEmail(workspace.business_email || '');
+            setIndustry(workspace.industry || 'Technology');
+            setGmailConnected(workspace.gmail_connected || false);
+            setCatalogData(workspace.catalog_data || '');
+            setPricingData(workspace.pricing_data || '');
+            setStep(1);
+            window.location.reload();
+          }
         } else {
-          setCompanyName(workspace.company_name || '');
-          setBusinessEmail(workspace.business_email || '');
-          setIndustry(workspace.industry || 'Technology');
-          setGmailConnected(workspace.gmail_connected || false);
-          setCatalogData(workspace.catalog_data || '');
-          setPricingData(workspace.pricing_data || '');
-          setStep(1);
-          window.location.reload();
+          throw new Error('Workspace not found');
         }
       } else {
-        throw new Error('Workspace not found');
+        toast('Invalid Workspace URL Name or PIN passcode.', 'error');
       }
     } catch (e) {
       if (originalSessionId) {
@@ -357,7 +369,7 @@ export function OnboardingPage() {
       } else {
         localStorage.removeItem('flow_session_id');
       }
-      toast('Workspace Session Key not found. Please verify the key and try again.', 'error');
+      toast('Workspace Session not found or passcode is invalid.', 'error');
     } finally {
       setLoading(false);
     }
@@ -447,14 +459,23 @@ export function OnboardingPage() {
 
                 <div>
                   <label className="text-[10px] uppercase font-semibold text-white/40 block mb-2 tracking-wider">Workspace Passcode PIN</label>
-                  <input 
-                    type="password"
-                    placeholder="Create a 4+ digit PIN / password"
-                    value={workspacePasscode}
-                    onChange={e => setWorkspacePasscode(e.target.value)}
-                    maxLength={30}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20 font-mono"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPasscode ? 'text' : 'password'}
+                      placeholder="Create a 4+ digit PIN / password"
+                      value={workspacePasscode}
+                      onChange={e => setWorkspacePasscode(e.target.value)}
+                      maxLength={30}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasscode(!showPasscode)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors animate-fade-in"
+                    >
+                      {showPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <span className="text-[10px] text-white/30 block mt-1.5 leading-normal">
                     Keep this passcode secret. You will need it along with your Workspace name to restore this session.
                   </span>
@@ -664,17 +685,36 @@ export function OnboardingPage() {
         >
           <div className="flex flex-col gap-4">
             <p className="text-xs text-white/60 leading-relaxed">
-              Paste your unique Workspace Session Key below to restore your configurations, catalog data, and transaction logs.
+              Enter your Workspace URL Name and Passcode PIN below to restore your configurations, catalog data, and transaction logs.
             </p>
             <div>
-              <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Workspace Session Key</label>
+              <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Workspace URL Name (Slug)</label>
               <input 
                 type="text" 
-                placeholder="e.g. session_abc123"
-                value={enteredSessionId}
-                onChange={e => setEnteredSessionId(e.target.value)}
+                placeholder="e.g. acme"
+                value={resumeSlug}
+                onChange={e => setResumeSlug(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20" 
               />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Security Passcode PIN</label>
+              <div className="relative">
+                <input 
+                  type={showResumePasscode ? 'text' : 'password'}
+                  placeholder="e.g. 1234"
+                  value={resumePasscode}
+                  onChange={e => setResumePasscode(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResumePasscode(!showResumePasscode)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                >
+                  {showResumePasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
         </Dialog>
