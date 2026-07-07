@@ -320,16 +320,51 @@ def check_slug(slug: str, db: Session = Depends(get_db)):
         
     if not settings.DATABASE_URL.startswith("sqlite"):
         try:
+            # 1. Check if schema exists
             res = db.execute(text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = :s"), {"s": f"session_{clean_slug}"})
-            exists = len(res.fetchall()) > 0
-            return {"available": not exists}
+            schema_exists = len(res.fetchall()) > 0
+            if not schema_exists:
+                return {"available": True}
+                
+            # 2. Schema exists, check if workspaces table exists and is onboarded
+            table_check = db.execute(text(
+                "SELECT FROM information_schema.tables WHERE table_schema = :s AND table_name = 'workspaces'"
+            ), {"s": f"session_{clean_slug}"})
+            table_exists = len(table_check.fetchall()) > 0
+            if not table_exists:
+                return {"available": True}
+                
+            # 3. Workspaces table exists, query onboarding_completed status
+            onboarded_check = db.execute(text(f"SELECT onboarding_completed FROM session_{clean_slug}.workspaces LIMIT 1"))
+            rows = onboarded_check.fetchall()
+            if len(rows) > 0 and rows[0][0] is True:
+                return {"available": False} # Schema is fully onboarded and active!
+            
+            return {"available": True} # Schema exists but is un-onboarded draft
         except Exception as e:
             print(f"Error checking slug schema availability: {e}")
             return {"available": True}
     else:
         import os
         exists = os.path.exists(f"session_{clean_slug}.db")
-        return {"available": not exists}
+        if not exists:
+            return {"available": True}
+            
+        # SQLite db file exists, check if workspaces table exists and is completed
+        try:
+            from sqlalchemy import create_engine
+            temp_engine = create_engine(f"sqlite:///session_{clean_slug}.db")
+            with temp_engine.connect() as conn:
+                table_check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='workspaces'"))
+                if len(table_check.fetchall()) > 0:
+                    onboarded_check = conn.execute(text("SELECT onboarding_completed FROM workspaces LIMIT 1"))
+                    rows = onboarded_check.fetchall()
+                    if len(rows) > 0 and rows[0][0] in (True, 1):
+                        return {"available": False}
+        except Exception as e:
+            print(f"Error checking SQLite slug availability: {e}")
+            
+        return {"available": True}
 
 
 @router.post("/workspace/resume")
