@@ -17,10 +17,12 @@ if DATABASE_URL.startswith("sqlite"):
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args=connect_args)
 else:
-    from sqlalchemy.pool import NullPool
     engine = create_engine(
         DATABASE_URL,
-        poolclass=NullPool
+        pool_size=5,             # Limit active connections per process to save DB limits
+        max_overflow=10,         # Allow temporary spikes up to 15 connections
+        pool_pre_ping=True,      # Test connections before checkout
+        pool_recycle=1800        # Reset stale connections every 30 minutes
     )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -113,11 +115,11 @@ def get_db(request: Request = None) -> Generator:
             db = SessionLocal()
             if session_id:
                 try:
-                    from sqlalchemy import text
-                    conn = db.connection()
-                    
-                    try:
-                        if session_id not in INITIALIZED_SCHEMAS:
+                    if session_id not in INITIALIZED_SCHEMAS:
+                        from sqlalchemy import text
+                        # Checkout connection temporarily to bootstrap schema
+                        conn = db.connection()
+                        try:
                             # 1. Create session schema if not exist
                             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS session_{session_id}"))
                             conn.execute(text(f"SET search_path TO session_{session_id}"))
@@ -133,18 +135,12 @@ def get_db(request: Request = None) -> Generator:
                             db.commit()
                             
                             INITIALIZED_SCHEMAS.add(session_id)
-                        else:
-                            # Extremely fast schema selection
-                            conn.execute(text(f"SET search_path TO session_{session_id}"))
-                        
-                        # Ensure session also uses search path
-                        db.execute(text(f"SET search_path TO session_{session_id}"))
-                        
-                    except Exception as e:
-                        print(f"Error initializing tenant schema session_{session_id}: {e}")
-                        # Fallback to public on exception
-                        db.execute(text("SET search_path TO public"))
-                        
+                        finally:
+                            conn.close()
+                    
+                    yield db
+                except Exception as e:
+                    print(f"Error initializing tenant schema session_{session_id}: {e}")
                     yield db
                 finally:
                     db.close()

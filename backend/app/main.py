@@ -105,8 +105,8 @@ async def gmail_polling_task():
                 await asyncio.gather(*(safe_poll(t) for t in tenant_sessions), return_exceptions=True)
         except Exception as e:
             print(f"⚠️ Exception in Gmail polling task: {e}")
-        # Poll inbox every 5 seconds for near real-time automation
-        await asyncio.sleep(5)
+        # Poll inbox every 60 seconds to prevent database connection exhaustion
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager
