@@ -271,6 +271,11 @@ def get_credentials_defaults(request: Request):
     """Returns the configured client ID, secret, and dynamic redirect URI defaults."""
     # Determine the backend base URL dynamically from request headers
     base_url = str(request.base_url).rstrip('/')
+    # Force HTTPS for public domains to comply with Google's OAuth security policies
+    if not any(x in base_url for x in ("localhost", "127.0.0.1")):
+        if base_url.startswith("http://"):
+            base_url = "https://" + base_url[7:]
+            
     default_redirect = f"{base_url}/workspace/oauth-callback"
     return {
         "client_id": settings.GOOGLE_CLIENT_ID or "",
