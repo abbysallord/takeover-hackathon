@@ -55,14 +55,20 @@ export function DashboardLayout() {
   useEffect(() => {
     mockApi.getWorkspace().then(workspace => {
       if (!workspace || !workspace.onboarding_completed) {
-        navigate('/onboarding');
+        navigate({
+          pathname: '/onboarding',
+          search: window.location.search
+        });
       } else {
         setCompanyName(workspace.company_name);
         setIsLoading(false);
       }
     }).catch(e => {
       console.error(e);
-      navigate('/onboarding');
+      navigate({
+        pathname: '/onboarding',
+        search: window.location.search
+      });
     });
   }, [navigate]);
 

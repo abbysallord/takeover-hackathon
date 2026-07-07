@@ -52,6 +52,20 @@ export function SettingsPage() {
 
   useEffect(() => {
     loadWorkspace();
+
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('gmail_connected');
+    const err = params.get('error');
+
+    if (connected === 'true') {
+      setActiveTab('Integrations');
+      toast('Gmail connected successfully via Google OAuth!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (err) {
+      setActiveTab('Integrations');
+      toast(`OAuth connection failed: ${err}`, 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const handleSave = async () => {
@@ -297,44 +311,6 @@ export function SettingsPage() {
                     <h2 className="text-lg font-medium text-white mb-6">Integrations & Credentials</h2>
                     
                     <div className="flex flex-col gap-6 text-xs text-white/80">
-                      {/* Google Credentials Setup */}
-                      <div className="bg-white/[0.02] border border-white/5 p-5 rounded-2xl flex flex-col gap-4">
-                        <h3 className="text-sm font-semibold text-white">Google OAuth Settings</h3>
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Google Client ID</label>
-                          <input 
-                            type="text" 
-                            value={googleClientId}
-                            onChange={(e) => setGoogleClientId(e.target.value)}
-                            placeholder="Paste your Client ID here"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-white/20" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Google Client Secret</label>
-                          <input 
-                            type="password" 
-                            value={googleClientSecret}
-                            onChange={(e) => setGoogleClientSecret(e.target.value)}
-                            placeholder="••••••••••••••••••••"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-white/20" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Authorized Redirect URI</label>
-                          <input 
-                            type="text" 
-                            value={googleRedirectUri}
-                            onChange={(e) => setGoogleRedirectUri(e.target.value)}
-                            placeholder="e.g., http://localhost:8001/workspace/oauth-callback"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-white/20" 
-                          />
-                          <span className="text-[10px] text-white/30 block mt-1.5 leading-normal">
-                            Ensure this matches one of the Authorized Redirect URIs inside your Google Cloud Console Credentials configuration.
-                          </span>
-                        </div>
-                      </div>
-
                       {/* Gmail Inbox Connection status */}
                       <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-3">

@@ -106,11 +106,15 @@ def get_auth_url(request: Request, db: Session = Depends(get_db)):
         else settings.GOOGLE_CLIENT_ID
     )
 
-    redirect_uri = (
-        workspace.google_redirect_uri
-        if (workspace and workspace.google_redirect_uri)
-        else "http://localhost:8001/workspace/oauth-callback"
-    )
+    if workspace and workspace.google_redirect_uri:
+        redirect_uri = workspace.google_redirect_uri
+    else:
+        base_url = str(request.base_url).rstrip('/')
+        if not any(x in base_url for x in ("localhost", "127.0.0.1")):
+            if base_url.startswith("http://"):
+                base_url = "https://" + base_url[7:]
+        redirect_uri = f"{base_url}/workspace/oauth-callback"
+
     scope = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
 
     auth_url = (
@@ -130,6 +134,7 @@ def get_auth_url(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/workspace/oauth-callback")
 async def oauth_callback(
+    request: Request,
     code: Optional[str] = None, 
     error: Optional[str] = None,
     state: Optional[str] = None, 
@@ -166,7 +171,15 @@ async def oauth_callback(
     client_secret = (
         workspace.google_client_secret or settings.GOOGLE_CLIENT_SECRET
     )
-    redirect_uri = workspace.google_redirect_uri or "http://localhost:8001/workspace/oauth-callback"
+    
+    if workspace and workspace.google_redirect_uri:
+        redirect_uri = workspace.google_redirect_uri
+    else:
+        base_url = str(request.base_url).rstrip('/')
+        if not any(x in base_url for x in ("localhost", "127.0.0.1")):
+            if base_url.startswith("http://"):
+                base_url = "https://" + base_url[7:]
+        redirect_uri = f"{base_url}/workspace/oauth-callback"
 
     try:
         token_data = await exchange_auth_code(
