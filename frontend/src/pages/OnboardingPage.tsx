@@ -14,7 +14,17 @@ export function OnboardingPage() {
   const [resumeSlug, setResumeSlug] = useState('');
   const [resumePasscode, setResumePasscode] = useState('');
   const [showResumePasscode, setShowResumePasscode] = useState(false);
+  const [resumeError, setResumeError] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState('');
+
+  // Clear modal states when opening/closing
+  useEffect(() => {
+    if (!isResumeOpen) {
+      setResumeSlug('');
+      setResumePasscode('');
+      setResumeError('');
+    }
+  }, [isResumeOpen]);
 
   useEffect(() => {
     setCurrentSessionId(localStorage.getItem('flow_session_id') || '');
@@ -319,12 +329,13 @@ export function OnboardingPage() {
     }
   };
   const handleResumeSession = async () => {
+    setResumeError('');
     if (!resumeSlug || !resumeSlug.trim()) {
-      toast('Please enter your Workspace URL Name (Slug).', 'error');
+      setResumeError('Please enter your Workspace URL Name (Slug).');
       return;
     }
     if (!resumePasscode || !resumePasscode.trim()) {
-      toast('Please enter your Workspace PIN Passcode.', 'error');
+      setResumeError('Please enter your Workspace PIN Passcode.');
       return;
     }
 
@@ -361,7 +372,7 @@ export function OnboardingPage() {
           throw new Error('Workspace not found');
         }
       } else {
-        toast('Invalid Workspace URL Name or PIN passcode.', 'error');
+        setResumeError('Invalid Workspace URL Name or PIN passcode.');
       }
     } catch (e) {
       if (originalSessionId) {
@@ -369,7 +380,7 @@ export function OnboardingPage() {
       } else {
         localStorage.removeItem('flow_session_id');
       }
-      toast('Workspace Session not found or passcode is invalid.', 'error');
+      setResumeError('Workspace Session not found or passcode is invalid.');
     } finally {
       setLoading(false);
     }
@@ -668,20 +679,31 @@ export function OnboardingPage() {
           onClose={() => setIsResumeOpen(false)}
           title="Resume Workspace Session"
           onConfirm={handleResumeSession}
-          confirmText="Restore Session"
+          confirmText={loading ? 'Verifying...' : 'Restore Session'}
         >
           <div className="flex flex-col gap-4">
             <p className="text-xs text-white/60 leading-relaxed">
               Enter your Workspace URL Name and Passcode PIN below to restore your configurations, catalog data, and transaction logs.
             </p>
+            
+            {resumeError && (
+              <div className="bg-[#ff5f57]/10 border border-[#ff5f57]/20 rounded-xl p-3 text-xs text-[#ff5f57] leading-relaxed text-left">
+                {resumeError}
+              </div>
+            )}
+
             <div>
               <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Workspace URL Name (Slug)</label>
               <input 
                 type="text" 
                 placeholder="e.g. acme"
                 value={resumeSlug}
-                onChange={e => setResumeSlug(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20" 
+                disabled={loading}
+                onChange={e => {
+                  setResumeSlug(e.target.value);
+                  setResumeError('');
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50" 
               />
             </div>
             <div>
@@ -691,13 +713,18 @@ export function OnboardingPage() {
                   type={showResumePasscode ? 'text' : 'password'}
                   placeholder="e.g. 1234"
                   value={resumePasscode}
-                  onChange={e => setResumePasscode(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20" 
+                  disabled={loading}
+                  onChange={e => {
+                    setResumePasscode(e.target.value);
+                    setResumeError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-50" 
                 />
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => setShowResumePasscode(!showResumePasscode)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors disabled:opacity-50"
                 >
                   {showResumePasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
