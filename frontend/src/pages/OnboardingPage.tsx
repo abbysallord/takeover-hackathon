@@ -660,19 +660,6 @@ export function OnboardingPage() {
           >
             Click here to resume
           </button>
-          
-          <div className="mt-4 text-[10px] text-white/20 border-t border-white/5 pt-4 flex justify-between items-center px-2">
-            <span>Your Current Workspace Key: <span className="font-mono text-white/40 select-all">{currentSessionId}</span></span>
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(currentSessionId);
-                toast('Workspace Key copied to clipboard!', 'success');
-              }}
-              className="text-blue-500 hover:underline hover:text-blue-400"
-            >
-              Copy Key
-            </button>
-          </div>
         </div>
 
         {/* Dialog to input Session ID */}

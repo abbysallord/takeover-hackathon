@@ -292,31 +292,6 @@ export function SettingsPage() {
                           This preference is stored locally and applies to dashboard metrics.
                         </span>
                       </div>
-
-                      <div>
-                        <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Workspace Session Key</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            readOnly 
-                            value={localStorage.getItem('flow_session_id') || ''}
-                            className="w-full bg-[#1e1e21] border border-white/10 rounded-xl px-4 py-3 text-sm text-white/50 font-mono outline-none cursor-default" 
-                          />
-                          <button
-                            onClick={() => {
-                              const key = localStorage.getItem('flow_session_id') || '';
-                              navigator.clipboard.writeText(key);
-                              toast('Workspace Session Key copied!', 'success');
-                            }}
-                            className="bg-white/10 hover:bg-white/15 px-4 rounded-xl text-xs font-semibold text-white transition-colors"
-                          >
-                            Copy
-                          </button>
-                        </div>
-                        <span className="text-[10px] text-white/30 mt-2 block">
-                          Save this key securely. You can use it on the onboarding page to restore or access this workspace from other browsers.
-                        </span>
-                      </div>
                       
                       <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/5">
                         <button 
