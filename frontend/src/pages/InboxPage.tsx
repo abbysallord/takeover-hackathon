@@ -293,8 +293,9 @@ export function InboxPage() {
                                 background: transparent;
                                 margin: 0;
                                 padding: 0;
+                                word-break: break-word;
                               }
-                              a { color: #3b82f6; }
+                              a { color: #3b82f6; word-break: break-all; }
                               /* Make sure nested elements fit dark theme styling rules */
                               div, p, span, td, th, table, tr { 
                                 background-color: transparent !important; 
@@ -312,7 +313,7 @@ export function InboxPage() {
                       title="Email Content"
                     />
                   ) : (
-                    <div className="whitespace-pre-line">{selectedEmail.body}</div>
+                    <div className="whitespace-pre-line break-words">{selectedEmail.body}</div>
                   )}
                 </div>
               </div>
@@ -333,7 +334,7 @@ export function InboxPage() {
                       <span className="text-[10px] text-white/30">AI confidence: {Math.round(workflow.steps.find((s: any) => s.stage === "GENERATE_QUOTATION")?.input_data?.confidence * 100) || 98}%</span>
                     </div>
                     
-                    <div className="text-sm text-white/90 leading-relaxed bg-white/5 p-4 rounded-xl min-h-[140px] whitespace-pre-line font-sans">
+                    <div className="text-sm text-white/90 leading-relaxed bg-white/5 p-4 rounded-xl min-h-[140px] whitespace-pre-line font-sans break-words">
                       {(() => {
                         const pendingApproval = workflow.approvals?.find((a: any) => a.status === 'PENDING' || a.status === 'pending');
                         const customerName = selectedEmail.sender.split(' ')[0] || 'Customer';
