@@ -234,10 +234,14 @@ class WorkflowEngine:
                     break
                     
             except Exception as e:
-                step.status = "FAILED"
-                step.error_message = str(e)
-                step.completed_at = datetime.now()
-                db.commit()
+                db.rollback()
+                try:
+                    step.status = "FAILED"
+                    step.error_message = str(e)
+                    step.completed_at = datetime.now()
+                    db.commit()
+                except Exception:
+                    db.rollback()
                 
                 self._fail_workflow(db, workflow, f"Tool '{tool_name}' failed: {str(e)}")
                 break
