@@ -116,32 +116,46 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Run dynamic dialect-agnostic alter statement for workspaces columns
     try:
-        from sqlalchemy import text
+        from sqlalchemy import text, inspect
+        from app.models.models import Workspace
         with engine.begin() as conn:
-            columns_to_add = [
-                ("onboarding_completed", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE"),
-                ("gmail_connected", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE"),
-                ("business_email", "VARCHAR(255)", "VARCHAR(255)"),
-                ("google_redirect_uri", "VARCHAR(255)", "VARCHAR(255)"),
-                ("google_client_id", "VARCHAR(255)", "VARCHAR(255)"),
-                ("google_client_secret", "VARCHAR(255)", "VARCHAR(255)"),
-                ("google_access_token", "VARCHAR(500)", "VARCHAR(500)"),
-                ("google_refresh_token", "VARCHAR(500)", "VARCHAR(500)"),
-                ("google_token_expires_at", "TIMESTAMP", "TIMESTAMP")
-            ]
-            if DATABASE_URL.startswith("sqlite"):
-                for col_name, sqlite_def, _ in columns_to_add:
-                    try:
-                        conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
-                    except Exception as sqlite_err:
-                        if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
-                            pass
-            else:
-                for col_name, _, pg_def in columns_to_add:
-                    try:
-                        conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS {col_name} {pg_def};"))
-                    except Exception as pg_err:
-                        print(f"⚠️ PostgreSQL migration warning for {col_name}: {pg_err}")
+            inspector = inspect(engine)
+            # Fetch existing columns from the database workspaces table
+            existing_columns = {col['name'] for col in inspector.get_columns('workspaces')}
+            
+            # Auto-detect and migrate any columns defined in model but missing in database
+            for column in Workspace.__table__.columns:
+                col_name = column.name
+                if col_name not in existing_columns:
+                    col_type = str(column.type)
+                    # Determine appropriate definitions for SQLite and Postgres dialects
+                    if col_name in ("onboarding_completed", "gmail_connected"):
+                        sqlite_def = "BOOLEAN DEFAULT FALSE"
+                        pg_def = "BOOLEAN DEFAULT FALSE"
+                    elif "VARCHAR" in col_type.upper():
+                        sqlite_def = col_type
+                        pg_def = col_type
+                    elif "TEXT" in col_type.upper():
+                        sqlite_def = "TEXT"
+                        pg_def = "TEXT"
+                    elif "DATETIME" in col_type.upper() or "TIMESTAMP" in col_type.upper():
+                        sqlite_def = "TIMESTAMP"
+                        pg_def = "TIMESTAMP"
+                    else:
+                        sqlite_def = col_type
+                        pg_def = col_type
+
+                    if DATABASE_URL.startswith("sqlite"):
+                        try:
+                            conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
+                        except Exception as sqlite_err:
+                            if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
+                                pass
+                    else:
+                        try:
+                            conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS {col_name} {pg_def};"))
+                        except Exception as pg_err:
+                            print(f"⚠️ PostgreSQL migration warning for {col_name}: {pg_err}")
             print("Successfully verified all columns exist in workspaces table.")
     except Exception as e:
         print(f"⚠️ Migration warning: {e}")
