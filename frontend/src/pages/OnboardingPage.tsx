@@ -4,10 +4,19 @@ import { Sparkles, Mail, Database, FileText, CheckCircle2, ArrowRight, ArrowLeft
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
 import { mockApi } from '../services/mockApi';
+import { Dialog } from '../components/ui/Dialog';
 
 export function OnboardingPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  const [isResumeOpen, setIsResumeOpen] = useState(false);
+  const [enteredSessionId, setEnteredSessionId] = useState('');
+  const [currentSessionId, setCurrentSessionId] = useState('');
+
+  useEffect(() => {
+    setCurrentSessionId(localStorage.getItem('flow_session_id') || '');
+  }, []);
   
   // Load initial values from localStorage to survive OAuth redirect reload
   const [step, setStep] = useState(() => {
@@ -247,6 +256,53 @@ export function OnboardingPage() {
       setLoading(false);
     }
   };
+  const handleResumeSession = async () => {
+    if (!enteredSessionId || !enteredSessionId.trim()) {
+      toast('Please enter a Workspace Session Key.', 'error');
+      return;
+    }
+
+    const cleanKey = enteredSessionId.trim();
+    const originalSessionId = localStorage.getItem('flow_session_id');
+
+    try {
+      setLoading(true);
+      // Temporarily swap session ID to test existence
+      localStorage.setItem('flow_session_id', cleanKey);
+      
+      const workspace = await mockApi.getWorkspace();
+      
+      if (workspace) {
+        clearOnboardingCache();
+        toast('Workspace Session restored successfully!', 'success');
+        setIsResumeOpen(false);
+        
+        if (workspace.onboarding_completed) {
+          navigate('/dashboard');
+        } else {
+          setCompanyName(workspace.company_name || '');
+          setBusinessEmail(workspace.business_email || '');
+          setIndustry(workspace.industry || 'Technology');
+          setGmailConnected(workspace.gmail_connected || false);
+          setCatalogData(workspace.catalog_data || '');
+          setPricingData(workspace.pricing_data || '');
+          setStep(1);
+          window.location.reload();
+        }
+      } else {
+        throw new Error('Workspace not found');
+      }
+    } catch (e) {
+      if (originalSessionId) {
+        localStorage.setItem('flow_session_id', originalSessionId);
+      } else {
+        localStorage.removeItem('flow_session_id');
+      }
+      toast('Workspace Session Key not found. Please verify the key and try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageTransition>
@@ -477,6 +533,55 @@ export function OnboardingPage() {
             )}
           </div>
         </div>
+
+        {/* Sleek Resume Session Card */}
+        <div className="w-full max-w-xl mt-6 bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md text-center text-xs text-white/50 relative overflow-hidden">
+          <span>Already have a workspace session? </span>
+          <button 
+            onClick={() => setIsResumeOpen(true)}
+            className="text-blue-400 hover:text-blue-300 font-semibold underline ml-1"
+          >
+            Click here to resume
+          </button>
+          
+          <div className="mt-4 text-[10px] text-white/20 border-t border-white/5 pt-4 flex justify-between items-center px-2">
+            <span>Your Current Workspace Key: <span className="font-mono text-white/40 select-all">{currentSessionId}</span></span>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(currentSessionId);
+                toast('Workspace Key copied to clipboard!', 'success');
+              }}
+              className="text-blue-500 hover:underline hover:text-blue-400"
+            >
+              Copy Key
+            </button>
+          </div>
+        </div>
+
+        {/* Dialog to input Session ID */}
+        <Dialog
+          isOpen={isResumeOpen}
+          onClose={() => setIsResumeOpen(false)}
+          title="Resume Workspace Session"
+          onConfirm={handleResumeSession}
+          confirmText="Restore Session"
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-white/60 leading-relaxed">
+              Paste your unique Workspace Session Key below to restore your configurations, catalog data, and transaction logs.
+            </p>
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-white/40 tracking-wider mb-2">Workspace Session Key</label>
+              <input 
+                type="text" 
+                placeholder="e.g. session_abc123"
+                value={enteredSessionId}
+                onChange={e => setEnteredSessionId(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 outline-none focus:ring-1 focus:ring-white/20" 
+              />
+            </div>
+          </div>
+        </Dialog>
       </div>
     </PageTransition>
   );
