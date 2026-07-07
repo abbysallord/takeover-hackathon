@@ -19,8 +19,8 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        pool_size=30,
-        max_overflow=15,
+        pool_size=5,
+        max_overflow=5,
         pool_pre_ping=True,
         pool_recycle=1800
     )
