@@ -161,18 +161,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # before we even accept traffic — which causes EMAXCONNSESSION on rolling deploys.
         print("PostgreSQL mode: skipping startup schema creation. Tenant schemas are created on first request.")
 
-    # Spawn background task
-    polling_job = asyncio.create_task(gmail_polling_task())
+    # Spawn background polling task in a dedicated thread to prevent blocking Uvicorn's main event loop
+    import threading
+    
+    def run_polling_loop():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(gmail_polling_task())
+        except Exception as e:
+            print(f"⚠️ Exception in polling thread: {e}")
+        finally:
+            loop.close()
+
+    polling_thread = threading.Thread(target=run_polling_loop, daemon=True)
+    polling_thread.start()
 
     try:
         yield
     finally:
-        # Cancel background task on system shutdown
-        polling_job.cancel()
-        try:
-            await polling_job
-        except asyncio.CancelledError:
-            pass
+        # Daemon thread automatically terminates on process exit
+        pass
 
 
 app = FastAPI(
