@@ -114,19 +114,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create SQLite database tables if they do not exist
     Base.metadata.create_all(bind=engine)
 
-    # Run dynamic dialect-agnostic alter statement for onboarding_completed column
+    # Run dynamic dialect-agnostic alter statement for workspaces columns
     try:
         from sqlalchemy import text
         with engine.begin() as conn:
+            columns_to_add = [
+                ("onboarding_completed", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE"),
+                ("business_email", "VARCHAR(255)", "VARCHAR(255)"),
+                ("google_redirect_uri", "VARCHAR(255)", "VARCHAR(255)"),
+                ("google_client_id", "VARCHAR(255)", "VARCHAR(255)"),
+                ("google_client_secret", "VARCHAR(255)", "VARCHAR(255)"),
+                ("google_access_token", "VARCHAR(500)", "VARCHAR(500)"),
+                ("google_refresh_token", "VARCHAR(500)", "VARCHAR(500)"),
+                ("google_token_expires_at", "TIMESTAMP", "TIMESTAMP")
+            ]
             if DATABASE_URL.startswith("sqlite"):
-                try:
-                    conn.execute(text("ALTER TABLE workspaces ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE;"))
-                except Exception as sqlite_err:
-                    if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
-                        pass
+                for col_name, sqlite_def, _ in columns_to_add:
+                    try:
+                        conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
+                    except Exception as sqlite_err:
+                        if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
+                            pass
             else:
-                conn.execute(text("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;"))
-            print("Successfully verified onboarding_completed column exists in workspaces table.")
+                for col_name, _, pg_def in columns_to_add:
+                    try:
+                        conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS {col_name} {pg_def};"))
+                    except Exception as pg_err:
+                        print(f"⚠️ PostgreSQL migration warning for {col_name}: {pg_err}")
+            print("Successfully verified all columns exist in workspaces table.")
     except Exception as e:
         print(f"⚠️ Migration warning: {e}")
 
