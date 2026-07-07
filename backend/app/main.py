@@ -112,61 +112,50 @@ async def gmail_polling_task():
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Handles startup and shutdown events for database setup and seeding."""
-    # Create SQLite database tables if they do not exist
-    Base.metadata.create_all(bind=engine)
-
-    # Run dynamic dialect-agnostic alter statement for workspaces columns
-    try:
-        from sqlalchemy import text, inspect
-        from app.models.models import Workspace
-        with engine.begin() as conn:
-            inspector = inspect(engine)
-            # Fetch existing columns from the database workspaces table
-            existing_columns = {col['name'] for col in inspector.get_columns('workspaces')}
-            
-            # Auto-detect and migrate any columns defined in model but missing in database
-            for column in Workspace.__table__.columns:
-                col_name = column.name
-                if col_name not in existing_columns:
-                    col_type = str(column.type)
-                    # Determine appropriate definitions for SQLite and Postgres dialects
-                    if col_name in ("onboarding_completed", "gmail_connected"):
-                        sqlite_def = "BOOLEAN DEFAULT FALSE"
-                        pg_def = "BOOLEAN DEFAULT FALSE"
-                    elif "VARCHAR" in col_type.upper():
-                        sqlite_def = col_type
-                        pg_def = col_type
-                    elif "TEXT" in col_type.upper():
-                        sqlite_def = "TEXT"
-                        pg_def = "TEXT"
-                    elif "DATETIME" in col_type.upper() or "TIMESTAMP" in col_type.upper():
-                        sqlite_def = "TIMESTAMP"
-                        pg_def = "TIMESTAMP"
-                    else:
-                        sqlite_def = col_type
-                        pg_def = col_type
-
-                    if DATABASE_URL.startswith("sqlite"):
-                        try:
-                            conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
-                        except Exception as sqlite_err:
-                            if "duplicate column" not in str(sqlite_err).lower() and "already exists" not in str(sqlite_err).lower():
+    
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    
+    if is_sqlite:
+        # SQLite local dev: create tables and run seed in one connection
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text, inspect
+            from app.models.models import Workspace
+            try:
+                inspector = inspect(engine)
+                existing_columns = {col['name'] for col in inspector.get_columns('workspaces')}
+                with engine.begin() as conn:
+                    for column in Workspace.__table__.columns:
+                        col_name = column.name
+                        if col_name not in existing_columns:
+                            col_type = str(column.type)
+                            if col_name in ("onboarding_completed", "gmail_connected"):
+                                sqlite_def = "BOOLEAN DEFAULT FALSE"
+                            elif "VARCHAR" in col_type.upper():
+                                sqlite_def = col_type
+                            elif "TEXT" in col_type.upper():
+                                sqlite_def = "TEXT"
+                            elif "DATETIME" in col_type.upper() or "TIMESTAMP" in col_type.upper():
+                                sqlite_def = "TIMESTAMP"
+                            else:
+                                sqlite_def = col_type
+                            try:
+                                conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
+                            except Exception:
                                 pass
-                    else:
-                        try:
-                            conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS {col_name} {pg_def};"))
-                        except Exception as pg_err:
-                            print(f"⚠️ PostgreSQL migration warning for {col_name}: {pg_err}")
-            print("Successfully verified all columns exist in workspaces table.")
-    except Exception as e:
-        print(f"⚠️ Migration warning: {e}")
-
-    # Run database seed service
-    db = SessionLocal()
-    try:
-        seed_database(db)
-    finally:
-        db.close()
+                print("Successfully verified all columns exist in workspaces table.")
+            except Exception as e:
+                print(f"⚠️ Migration warning: {e}")
+            
+            seed_database(db)
+        finally:
+            db.close()
+    else:
+        # PostgreSQL (Supabase): schemas are created on-demand per tenant via get_db.
+        # Skipping create_all and seed at startup to avoid consuming connection pool slots
+        # before we even accept traffic — which causes EMAXCONNSESSION on rolling deploys.
+        print("PostgreSQL mode: skipping startup schema creation. Tenant schemas are created on first request.")
 
     # Spawn background task
     polling_job = asyncio.create_task(gmail_polling_task())
