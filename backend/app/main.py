@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         with engine.begin() as conn:
             columns_to_add = [
                 ("onboarding_completed", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE"),
+                ("gmail_connected", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT FALSE"),
                 ("business_email", "VARCHAR(255)", "VARCHAR(255)"),
                 ("google_redirect_uri", "VARCHAR(255)", "VARCHAR(255)"),
                 ("google_client_id", "VARCHAR(255)", "VARCHAR(255)"),
