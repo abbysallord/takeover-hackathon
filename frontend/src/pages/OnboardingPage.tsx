@@ -35,6 +35,35 @@ export function OnboardingPage() {
   const [googleClientSecret, setGoogleClientSecret] = useState(() => localStorage.getItem('onb_googleClientSecret') || '');
   const [googleRedirectUri, setGoogleRedirectUri] = useState(() => localStorage.getItem('onb_googleRedirectUri') || 'http://localhost:8001/workspace/oauth-callback');
 
+  const [workspaceSlug, setWorkspaceSlug] = useState(() => localStorage.getItem('onb_workspaceSlug') || '');
+  const [workspacePasscode, setWorkspacePasscode] = useState(() => localStorage.getItem('onb_workspacePasscode') || '');
+  const [isSlugAvailable, setIsSlugAvailable] = useState<boolean | null>(null);
+  const [checkingSlug, setCheckingSlug] = useState(false);
+
+  // Check slug availability on input change
+  useEffect(() => {
+    if (!workspaceSlug || !workspaceSlug.trim()) {
+      setIsSlugAvailable(null);
+      return;
+    }
+    
+    // Clean the slug (alphanumeric + lowercase)
+    const clean = workspaceSlug.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+    if (clean !== workspaceSlug) {
+      setWorkspaceSlug(clean);
+      return;
+    }
+
+    setCheckingSlug(true);
+    const delayDebounceFn = setTimeout(async () => {
+      const available = await mockApi.checkSlug(clean);
+      setIsSlugAvailable(available);
+      setCheckingSlug(false);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [workspaceSlug]);
+
   // Handle URL redirect query parameters and load credential defaults on mount
   useEffect(() => {
     // If onboarding is already completed in DB, redirect to dashboard immediately
@@ -117,6 +146,12 @@ export function OnboardingPage() {
   useEffect(() => {
     localStorage.setItem('onb_googleRedirectUri', googleRedirectUri);
   }, [googleRedirectUri]);
+  useEffect(() => {
+    localStorage.setItem('onb_workspaceSlug', workspaceSlug);
+  }, [workspaceSlug]);
+  useEffect(() => {
+    localStorage.setItem('onb_workspacePasscode', workspacePasscode);
+  }, [workspacePasscode]);
 
   const clearOnboardingCache = () => {
     localStorage.removeItem('onb_step');
@@ -128,6 +163,8 @@ export function OnboardingPage() {
     localStorage.removeItem('onb_googleClientId');
     localStorage.removeItem('onb_googleClientSecret');
     localStorage.removeItem('onb_googleRedirectUri');
+    localStorage.removeItem('onb_workspaceSlug');
+    localStorage.removeItem('onb_workspacePasscode');
   };
 
   const handleConnectGmail = async () => {
@@ -214,9 +251,30 @@ export function OnboardingPage() {
   };
 
   const handleNext = () => {
-    if (step === 1 && !companyName) {
-      toast('Please enter your company name to continue.', 'error');
-      return;
+    if (step === 1) {
+      if (!companyName.trim()) {
+        toast('Please enter your company name to continue.', 'error');
+        return;
+      }
+      if (!workspaceSlug.trim()) {
+        toast('Please choose a Workspace Name/URL.', 'error');
+        return;
+      }
+      if (isSlugAvailable === false) {
+        toast('This Workspace URL name is already taken. Please choose another.', 'error');
+        return;
+      }
+      if (!workspacePasscode.trim()) {
+        toast('Please create a Workspace Passcode PIN.', 'error');
+        return;
+      }
+      if (workspacePasscode.trim().length < 4) {
+        toast('Passcode must be at least 4 characters long.', 'error');
+        return;
+      }
+
+      // Lock in the session identifier for headers
+      localStorage.setItem('flow_session_id', `session_${workspaceSlug.trim().toLowerCase()}`);
     }
     setStep(prev => prev + 1);
   };
@@ -238,7 +296,8 @@ export function OnboardingPage() {
         google_client_id: googleClientId,
         google_client_secret: googleClientSecret,
         google_redirect_uri: googleRedirectUri,
-        onboarding_completed: true
+        onboarding_completed: true,
+        passcode: workspacePasscode
       };
       
       const res = await mockApi.setupWorkspace(payload);
@@ -362,6 +421,43 @@ export function OnboardingPage() {
                     <option value="Retail">Retail & E-commerce</option>
                     <option value="Services">Professional Services</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-semibold text-white/40 block mb-2 tracking-wider">Workspace URL Name (Unique Slug)</label>
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder="e.g. acme"
+                      value={workspaceSlug}
+                      onChange={e => setWorkspaceSlug(e.target.value)}
+                      maxLength={30}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20 font-mono"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-[10px]">
+                      {checkingSlug && <span className="text-white/40">checking...</span>}
+                      {!checkingSlug && isSlugAvailable === true && <span className="text-[#28c840] font-semibold">✓ Available</span>}
+                      {!checkingSlug && isSlugAvailable === false && <span className="text-[#ff5f57] font-semibold">✗ Taken</span>}
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-white/30 block mt-1.5 leading-normal">
+                    This slug identifies your multi-tenant schema path (e.g. session_acme). Only alphanumeric characters and hyphens allowed.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="text-[10px] uppercase font-semibold text-white/40 block mb-2 tracking-wider">Workspace Passcode PIN</label>
+                  <input 
+                    type="password"
+                    placeholder="Create a 4+ digit PIN / password"
+                    value={workspacePasscode}
+                    onChange={e => setWorkspacePasscode(e.target.value)}
+                    maxLength={30}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:ring-1 focus:ring-white/20 font-mono"
+                  />
+                  <span className="text-[10px] text-white/30 block mt-1.5 leading-normal">
+                    Keep this passcode secret. You will need it along with your Workspace name to restore this session.
+                  </span>
                 </div>
               </div>
             </div>

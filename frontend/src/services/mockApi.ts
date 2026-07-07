@@ -226,6 +226,36 @@ export const mockApi = {
     }
   },
 
+  checkSlug: async (slug: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/check-slug/${encodeURIComponent(slug)}`);
+      if (!res.ok) throw new Error("Check slug failed");
+      const data = await res.json();
+      return data?.available ?? false;
+    } catch (e) {
+      console.error("Error checking workspace slug availability:", e);
+      return true;
+    }
+  },
+
+  resumeWorkspace: async (slug: string, passcode: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/resume`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Session-ID': `session_${slug}`
+        },
+        body: JSON.stringify({ slug, passcode })
+      });
+      if (!res.ok) throw new Error("Workspace resume verification failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error resuming workspace:", e);
+      return null;
+    }
+  },
+
   completeWorkspaceOnboarding: async (): Promise<any> => {
     try {
       const res = await fetch(`${API_BASE}/workspace/complete`, {

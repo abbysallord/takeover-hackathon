@@ -256,13 +256,13 @@ class WorkspaceBase(BaseModel):
 
 
 class WorkspaceCreate(WorkspaceBase):
-    pass
+    passcode: Optional[str] = None
 
 
 class WorkspaceResponse(WorkspaceBase):
     id: int
     created_at: datetime
+    passcode_hash: Optional[str] = None
 
     class Config:
         from_attributes = True
-

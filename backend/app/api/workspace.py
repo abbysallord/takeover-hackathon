@@ -33,6 +33,7 @@ def setup_workspace(
     """
     workspace = db.query(Workspace).first()
     
+    import hashlib
     if workspace:
         # Update existing config
         workspace.company_name = data.company_name
@@ -42,6 +43,8 @@ def setup_workspace(
         workspace.catalog_data = data.catalog_data
         workspace.pricing_data = data.pricing_data
         workspace.onboarding_completed = data.onboarding_completed
+        if data.passcode:
+            workspace.passcode_hash = hashlib.sha256(data.passcode.encode("utf-8")).hexdigest()
         if data.google_client_id:
             workspace.google_client_id = data.google_client_id
         if data.google_client_secret:
@@ -61,6 +64,7 @@ def setup_workspace(
             google_client_secret=data.google_client_secret,
             google_redirect_uri=data.google_redirect_uri,
             onboarding_completed=data.onboarding_completed,
+            passcode_hash=hashlib.sha256(data.passcode.encode("utf-8")).hexdigest() if data.passcode else None
         )
         db.add(workspace)
         
@@ -295,3 +299,53 @@ def get_credentials_defaults(request: Request):
         "client_secret": settings.GOOGLE_CLIENT_SECRET or "",
         "redirect_uri": default_redirect
     }
+
+
+from pydantic import BaseModel
+
+class ResumeRequest(BaseModel):
+    slug: str
+    passcode: str
+
+
+@router.get("/workspace/check-slug/{slug}")
+def check_slug(slug: str, db: Session = Depends(get_db)):
+    """Checks if a workspace schema name is already taken."""
+    from sqlalchemy import text
+    clean_slug = "".join(c for c in slug if c.isalnum() or c in ("-", "_")).lower()
+    
+    # Exclude reserved words and names
+    if clean_slug in ("public", "information_schema", "pg_catalog", "pg_toast"):
+        return {"available": False}
+        
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        try:
+            res = db.execute(text("SELECT schema_name FROM information_schema.schemata WHERE schema_name = :s"), {"s": f"session_{clean_slug}"})
+            exists = len(res.fetchall()) > 0
+            return {"available": not exists}
+        except Exception as e:
+            print(f"Error checking slug schema availability: {e}")
+            return {"available": True}
+    else:
+        import os
+        exists = os.path.exists(f"session_{clean_slug}.db")
+        return {"available": not exists}
+
+
+@router.post("/workspace/resume")
+def resume_workspace(data: ResumeRequest, db: Session = Depends(get_db)):
+    """Validates the security passcode for a dynamic tenant schema."""
+    workspace = db.query(Workspace).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace session not found.")
+        
+    if not workspace.passcode_hash:
+        # If no passcode was set (legacy), allow entry
+        return {"status": "success", "session_id": data.slug}
+        
+    import hashlib
+    hashed_entered = hashlib.sha256(data.passcode.encode("utf-8")).hexdigest()
+    if workspace.passcode_hash != hashed_entered:
+        raise HTTPException(status_code=401, detail="Invalid security passcode.")
+        
+    return {"status": "success", "session_id": data.slug}

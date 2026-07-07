@@ -154,5 +154,6 @@ class Workspace(Base):
     google_access_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     google_refresh_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     google_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    passcode_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
