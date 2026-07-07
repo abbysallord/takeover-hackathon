@@ -105,8 +105,8 @@ async def gmail_polling_task():
                 await asyncio.gather(*(safe_poll(t) for t in tenant_sessions), return_exceptions=True)
         except Exception as e:
             print(f"⚠️ Exception in Gmail polling task: {e}")
-        # Poll inbox every 60 seconds
-        await asyncio.sleep(60)
+        # Poll inbox every 5 seconds for near real-time automation
+        await asyncio.sleep(5)
 
 
 @asynccontextmanager
@@ -124,27 +124,31 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             from app.models.models import Workspace
             try:
                 inspector = inspect(engine)
-                existing_columns = {col['name'] for col in inspector.get_columns('workspaces')}
                 with engine.begin() as conn:
+                    # Migrate workspaces
+                    existing_workspace_cols = {col['name'] for col in inspector.get_columns('workspaces')}
                     for column in Workspace.__table__.columns:
                         col_name = column.name
-                        if col_name not in existing_columns:
+                        if col_name not in existing_workspace_cols:
                             col_type = str(column.type)
-                            if col_name in ("onboarding_completed", "gmail_connected"):
-                                sqlite_def = "BOOLEAN DEFAULT FALSE"
-                            elif "VARCHAR" in col_type.upper():
-                                sqlite_def = col_type
-                            elif "TEXT" in col_type.upper():
+                            sqlite_def = "BOOLEAN DEFAULT FALSE" if col_name in ("onboarding_completed", "gmail_connected") else col_type
+                            if "VARCHAR" in col_type.upper() or "TEXT" in col_type.upper():
                                 sqlite_def = "TEXT"
-                            elif "DATETIME" in col_type.upper() or "TIMESTAMP" in col_type.upper():
-                                sqlite_def = "TIMESTAMP"
-                            else:
-                                sqlite_def = col_type
                             try:
                                 conn.execute(text(f"ALTER TABLE workspaces ADD COLUMN {col_name} {sqlite_def};"))
                             except Exception:
                                 pass
-                print("Successfully verified all columns exist in workspaces table.")
+                    # Migrate emails
+                    from app.models.models import Email
+                    existing_email_cols = {col['name'] for col in inspector.get_columns('emails')}
+                    for column in Email.__table__.columns:
+                        col_name = column.name
+                        if col_name not in existing_email_cols:
+                            try:
+                                conn.execute(text(f"ALTER TABLE emails ADD COLUMN {col_name} TEXT;"))
+                            except Exception:
+                                pass
+                print("Successfully verified all columns exist in SQLite database.")
             except Exception as e:
                 print(f"⚠️ Migration warning: {e}")
             

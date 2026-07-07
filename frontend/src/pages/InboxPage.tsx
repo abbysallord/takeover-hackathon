@@ -14,6 +14,7 @@ export function InboxPage() {
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
   const [workflow, setWorkflow] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('ALL'); // ALL, LEADS, IGNORED
   const [isLoading, setIsLoading] = useState(true);
   const [approving, setApproving] = useState(false);
 
@@ -22,7 +23,7 @@ export function InboxPage() {
       setIsLoading(true);
       const data = await mockApi.getEmails();
       setEmails(data);
-      if (data.length > 0) {
+      if (data.length > 0 && selectedId === null) {
         setSelectedId(data[0].id);
         setSelectedEmail(data[0]);
       }
@@ -36,7 +37,7 @@ export function InboxPage() {
   useEffect(() => {
     loadEmails();
 
-    // Auto-refresh the inbox list in real-time every 8 seconds
+    // Auto-refresh the inbox list in real-time every 3 seconds
     const interval = setInterval(async () => {
       try {
         const data = await mockApi.getEmails();
@@ -44,10 +45,10 @@ export function InboxPage() {
       } catch (e) {
         console.error("Error auto-refreshing emails:", e);
       }
-    }, 8000);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId !== null) {
@@ -137,11 +138,18 @@ export function InboxPage() {
     }
   };
 
-  const filteredEmails = emails.filter(e => 
-    e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.body.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredEmails = emails.filter(e => {
+    const matchesSearch = e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          e.sender.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          e.body.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (filterType === 'LEADS') {
+      return matchesSearch && e.classification === 'VALID_LEAD';
+    } else if (filterType === 'IGNORED') {
+      return matchesSearch && e.classification === 'IGNORED_NON_LEAD';
+    }
+    return matchesSearch;
+  });
 
   return (
     <PageTransition>
@@ -164,6 +172,28 @@ export function InboxPage() {
             />
           </div>
 
+          {/* Filter Tabs */}
+          <div className="flex bg-white/5 p-1 rounded-lg mt-2">
+            <button 
+              onClick={() => setFilterType('ALL')}
+              className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${filterType === 'ALL' ? 'bg-white/10 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setFilterType('LEADS')}
+              className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${filterType === 'LEADS' ? 'bg-blue-500/20 text-blue-400 shadow-sm' : 'text-white/50 hover:text-white/80'}`}
+            >
+              Leads
+            </button>
+            <button 
+              onClick={() => setFilterType('IGNORED')}
+              className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${filterType === 'IGNORED' ? 'bg-white/10 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
+            >
+              Ignored
+            </button>
+          </div>
+
           <div className="flex flex-col gap-2 mt-2 overflow-y-auto pr-2 flex-1">
             {isLoading ? (
               [1, 2, 3].map(i => (
@@ -174,9 +204,13 @@ export function InboxPage() {
             ) : (
               filteredEmails.map(email => {
                 const isSelected = selectedId === email.id;
-                // Determine display status based on workflow
+                // Determine display status based on workflow and classification
                 let statusBadge = null;
-                if (email.direction === "OUTBOUND") {
+                if (email.classification === 'VALID_LEAD') {
+                  statusBadge = <Badge variant="success">Lead Processed</Badge>;
+                } else if (email.classification === 'IGNORED_NON_LEAD') {
+                  statusBadge = <Badge variant="neutral">Ignored Spam/Not Lead</Badge>;
+                } else if (email.direction === "OUTBOUND") {
                   statusBadge = <Badge variant="success">Sent</Badge>;
                 } else if (workflow && workflow.email_id === email.id) {
                   if (workflow.status === "COMPLETED") statusBadge = <Badge variant="success">Replied</Badge>;

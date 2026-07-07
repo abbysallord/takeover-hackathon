@@ -447,6 +447,16 @@ class WorkflowEngine:
             return self.calendar_tool.schedule_followup(customer_email, title, days_from_now)
             
         elif tool_name == "complete_workflow_tool":
+            # Check if an outbound reply was sent
+            outbound = db.query(Email).filter(Email.direction == "OUTBOUND", Email.recipient == workflow.email.sender).first()
+            if outbound:
+                workflow.email.classification = "VALID_LEAD"
+            else:
+                workflow.email.classification = "IGNORED_NON_LEAD"
+            
+            # Flush changes to email classification
+            db.commit()
+            
             return {"status": "SUCCESS", "message": "Workflow marked completed successfully."}
             
         else:

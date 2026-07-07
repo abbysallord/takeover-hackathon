@@ -51,6 +51,7 @@ class EmailBase(BaseModel):
     subject: str
     body: str
     direction: str = Field("INBOUND", description="INBOUND or OUTBOUND")
+    classification: Optional[str] = Field("UNCLASSIFIED", description="VALID_LEAD or IGNORED_NON_LEAD")
 
 
 class EmailCreate(EmailBase):

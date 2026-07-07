@@ -40,6 +40,7 @@ class Email(Base):
     body: Mapped[str] = mapped_column(Text)
     received_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     direction: Mapped[str] = mapped_column(String(20))  # INBOUND, OUTBOUND
+    classification: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="UNCLASSIFIED")
 
 
 class Workflow(Base):
