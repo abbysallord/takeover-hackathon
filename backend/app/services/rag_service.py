@@ -87,6 +87,11 @@ class RAGService:
             try:
                 for file_path in src_root.glob("**/*"):
                     if file_path.is_file() and file_path.suffix in [".md", ".txt"]:
+                        # Exclude other sessions' directories that might reside in the template folder
+                        parts = file_path.relative_to(src_root).parts
+                        if any(part.startswith("session_") for part in parts):
+                            continue
+                            
                         # Compute relative path
                         rel_path = file_path.relative_to(src_root)
                         dest_path = self.knowledge_root / rel_path

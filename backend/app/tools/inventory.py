@@ -51,13 +51,15 @@ class InventoryTool(BaseTool):
             # Fallback static DB
             stock_db = {
                 "widget-a": 1500,
-                "widget-b": 80,
+                "widget-b": 200,
                 "widget-c": 0,
                 "server-rack": 15,
             }
             matched_stock = 500  # Default fallback if product not in list
+            prod_norm = prod.replace("-", " ")
             for key, val in stock_db.items():
-                if key in prod:
+                key_norm = key.replace("-", " ")
+                if key_norm in prod_norm:
                     matched_stock = val
                     break
 

@@ -64,8 +64,10 @@ class PricingTool(BaseTool):
             }
             base_price = 25.0  # Fallback unit price
             matched_product = "Generic Item"
+            prod_norm = prod.replace("-", " ")
             for key, val in pricing_db.items():
-                if key in prod:
+                key_norm = key.replace("-", " ")
+                if key_norm in prod_norm:
                     base_price = val
                     matched_product = key.replace("-", " ").title()
                     break

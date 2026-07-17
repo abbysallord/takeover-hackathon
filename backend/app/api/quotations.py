@@ -11,20 +11,58 @@ router = APIRouter(tags=["Quotations"])
 
 @router.get("/quotations", response_model=List[QuotationResponse])
 def get_quotations(limit: int = 100, db: Session = Depends(get_db)) -> List[QuotationResponse]:
-    """Retrieves all generated quotations in the database."""
-    return db.query(Quotation).order_by(Quotation.created_at.desc()).limit(limit).all()
+    """Retrieves all generated quotations in the database, populating client names dynamically."""
+    quotes = db.query(Quotation).order_by(Quotation.created_at.desc()).limit(limit).all()
+    res = []
+    for q in quotes:
+        client_name = "Valued Customer"
+        if q.workflow and q.workflow.email and q.workflow.email.sender:
+            sender = q.workflow.email.sender
+            import re
+            name_match = re.match(r"^([^<@]+)", sender)
+            if name_match:
+                client_name = name_match.group(1).strip()
+        
+        res.append(
+            QuotationResponse(
+                id=q.id,
+                workflow_id=q.workflow_id,
+                quote_number=q.quote_number,
+                total_amount=q.total_amount,
+                items=q.items,
+                created_at=q.created_at,
+                client_name=client_name
+            )
+        )
+    return res
 
 
 @router.get("/quotations/{id}", response_model=QuotationResponse)
 def get_quotation_by_id(id: int, db: Session = Depends(get_db)) -> QuotationResponse:
-    """Retrieves details of a specific quotation by ID."""
-    quotation = db.query(Quotation).filter(Quotation.id == id).first()
-    if not quotation:
+    """Retrieves details of a specific quotation by ID, populating client name dynamically."""
+    q = db.query(Quotation).filter(Quotation.id == id).first()
+    if not q:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Quotation with ID {id} not found.",
         )
-    return quotation
+    client_name = "Valued Customer"
+    if q.workflow and q.workflow.email and q.workflow.email.sender:
+        sender = q.workflow.email.sender
+        import re
+        name_match = re.match(r"^([^<@]+)", sender)
+        if name_match:
+            client_name = name_match.group(1).strip()
+            
+    return QuotationResponse(
+        id=q.id,
+        workflow_id=q.workflow_id,
+        quote_number=q.quote_number,
+        total_amount=q.total_amount,
+        items=q.items,
+        created_at=q.created_at,
+        client_name=client_name
+    )
 
 
 @router.post("/quotations/{id}/send")

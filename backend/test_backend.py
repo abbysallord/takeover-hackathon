@@ -60,9 +60,18 @@ def main():
     )
     
     # Wait for server to boot up (including loading sentence-transformer RAG model weights)
-    time.sleep(15)
-    
-    if server_process.poll() is not None:
+    print("Waiting for server to start...")
+    booted = False
+    for i in range(30):
+        if server_process.poll() is not None:
+            break
+        status, body = make_request("/health")
+        if status == 200 and isinstance(body, dict) and body.get("status") == "ok":
+            booted = True
+            break
+        time.sleep(1)
+        
+    if not booted or server_process.poll() is not None:
         print("\033[91m[ERROR] Failed to start backend server. Make sure dependencies are installed and port 8009 is free.\033[0m")
         # print stderr
         with open("test_server.log", "r") as f:
@@ -86,7 +95,7 @@ def main():
         print_result("GET /dashboard", db_ok, 
                      f"Workflows: {stats.get('total_workflows')}, "
                      f"Pending Approvals: {stats.get('pending_approvals')}, "
-                     f"Revenue: ${stats.get('total_revenue'):,.2f}")
+                     f"Revenue: ${stats.get('total_revenue') or 0.0:,.2f}")
 
         # 4. Simulate a New Inbound Email Enquiry
         print("\n[4/7] Simulating inbound customer email from Tony Stark...")
@@ -135,10 +144,19 @@ def main():
             print_result("POST /approvals/{id} (Approved)", approve_ok, f"Status: {approval_res.get('status')}")
 
             # 8. Verify Workflow Completed successfully (wait for background tasks to finish)
-            time.sleep(3)
-            status, workflow_final = make_request(f"/workflows/{wf_id}")
-            wf_final_ok = status == 200 and workflow_final.get("status") == "COMPLETED"
+            print("Waiting for workflow to complete...")
+            wf_final_ok = False
+            for _ in range(40):
+                status, workflow_final = make_request(f"/workflows/{wf_id}")
+                if status == 200:
+                    current_status = workflow_final.get("status")
+                    if current_status in ("COMPLETED", "FAILED"):
+                        wf_final_ok = current_status == "COMPLETED"
+                        break
+                time.sleep(1)
             print_result("Verify Workflow Completed", wf_final_ok, f"Final Status: {workflow_final.get('status')}")
+            if not wf_final_ok:
+                print(f"DEBUG WORKFLOW RESPONSE: {json.dumps(workflow_final, indent=2)}")
             
             # 8b. Verify Workflow Trace
             status, trace = make_request(f"/workflows/{wf_id}/trace")
@@ -176,8 +194,6 @@ def main():
         # Clean test files
         if os.path.exists("takeover_test.db"):
             os.remove("takeover_test.db")
-        if os.path.exists("test_server.log"):
-            os.remove("test_server.log")
             
         print("Test server stopped and database removed.")
         print("=" * 80)

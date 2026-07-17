@@ -16,6 +16,27 @@ from app.services.gmail_sync_service import exchange_auth_code
 router = APIRouter(tags=["Workspace"])
 
 
+def get_request_base_url(request: Request) -> str:
+    """Helper to resolve external domain base URL when hosted behind reverse proxies."""
+    # Check for common reverse proxy headers first
+    proto = request.headers.get("x-forwarded-proto", "http")
+    host = request.headers.get("x-forwarded-host")
+    if not host:
+        host = request.headers.get("host")
+        
+    if host:
+        # If host contains port and is not local, use it as is; but let's ensure HTTPS mapping
+        if not any(x in host for x in ("localhost", "127.0.0.1")):
+            return f"{proto}://{host}"
+            
+    # Fallback to Starlette request.base_url parsing
+    base_url = str(request.base_url).rstrip('/')
+    if not any(x in base_url for x in ("localhost", "127.0.0.1")):
+        if base_url.startswith("http://"):
+            base_url = "https://" + base_url[7:]
+    return base_url
+
+
 @router.get("/workspace", response_model=Optional[WorkspaceResponse])
 def get_workspace(db: Session = Depends(get_db)) -> Optional[WorkspaceResponse]:
     """Retrieves the active workspace setup configuration, if initialized."""
@@ -113,10 +134,7 @@ def get_auth_url(request: Request, db: Session = Depends(get_db)):
     if workspace and workspace.google_redirect_uri:
         redirect_uri = workspace.google_redirect_uri
     else:
-        base_url = str(request.base_url).rstrip('/')
-        if not any(x in base_url for x in ("localhost", "127.0.0.1")):
-            if base_url.startswith("http://"):
-                base_url = "https://" + base_url[7:]
+        base_url = get_request_base_url(request)
         redirect_uri = f"{base_url}/workspace/oauth-callback"
 
     scope = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email"
@@ -179,10 +197,7 @@ async def oauth_callback(
     if workspace and workspace.google_redirect_uri:
         redirect_uri = workspace.google_redirect_uri
     else:
-        base_url = str(request.base_url).rstrip('/')
-        if not any(x in base_url for x in ("localhost", "127.0.0.1")):
-            if base_url.startswith("http://"):
-                base_url = "https://" + base_url[7:]
+        base_url = get_request_base_url(request)
         redirect_uri = f"{base_url}/workspace/oauth-callback"
 
     try:
@@ -286,13 +301,7 @@ def reset_workspace(db: Session = Depends(get_db)):
 @router.get("/workspace/credentials-defaults")
 def get_credentials_defaults(request: Request):
     """Returns the configured client ID, secret, and dynamic redirect URI defaults."""
-    # Determine the backend base URL dynamically from request headers
-    base_url = str(request.base_url).rstrip('/')
-    # Force HTTPS for public domains to comply with Google's OAuth security policies
-    if not any(x in base_url for x in ("localhost", "127.0.0.1")):
-        if base_url.startswith("http://"):
-            base_url = "https://" + base_url[7:]
-            
+    base_url = get_request_base_url(request)
     default_redirect = f"{base_url}/workspace/oauth-callback"
     return {
         "client_id": settings.GOOGLE_CLIENT_ID or "",

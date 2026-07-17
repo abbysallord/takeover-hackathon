@@ -508,28 +508,44 @@ class WorkflowEngine:
 
     def _parse_decision(self, response_text: str) -> Dict[str, Any]:
         """Extracts and parses JSON structures from LLM outputs robustly."""
-        clean_text = response_text.strip()
-        
-        # Clean markdown code block markers
-        clean_text = re.sub(r"^```(?:json)?\s*", "", clean_text, flags=re.MULTILINE)
-        clean_text = re.sub(r"\s*```$", "", clean_text, flags=re.MULTILINE)
-        clean_text = clean_text.strip()
+        # 1. Try to find markdown code blocks
+        code_blocks = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", response_text)
+        if code_blocks:
+            # Try to parse code blocks, starting from the last one (usually contains the final output)
+            for block in reversed(code_blocks):
+                try:
+                    block_clean = re.sub(r",\s*([\]}])", r"\1", block.strip())
+                    return json.loads(block_clean)
+                except Exception:
+                    pass
 
-        # Find the outermost JSON braces
-        start = clean_text.find("{")
-        end = clean_text.rfind("}")
-        if start != -1 and end != -1:
-            clean_text = clean_text[start:end+1]
-                
+        # 2. Try to find the outermost valid JSON structure by trying all '{'
+        clean_text = response_text.strip()
+        start_indices = [m.start() for m in re.finditer(r"{", clean_text)]
+        for start in start_indices:
+            end = clean_text.rfind("}")
+            while end > start:
+                substring = clean_text[start:end+1]
+                try:
+                    sub_clean = re.sub(r",\s*([\]}])", r"\1", substring)
+                    return json.loads(sub_clean)
+                except Exception:
+                    end = clean_text.rfind("}", start, end)
+
+        # 3. Fallback: old simple method (raise error if fails)
         try:
-            return json.loads(clean_text)
+            clean_text = response_text.strip()
+            clean_text = re.sub(r"^```(?:json)?\s*", "", clean_text, flags=re.MULTILINE)
+            clean_text = re.sub(r"\s*```$", "", clean_text, flags=re.MULTILINE)
+            clean_text = clean_text.strip()
+            start = clean_text.find("{")
+            end = clean_text.rfind("}")
+            if start != -1 and end != -1:
+                clean_text = clean_text[start:end+1]
+            fixed_text = re.sub(r",\s*([\]}])", r"\1", clean_text)
+            return json.loads(fixed_text)
         except Exception as e:
-            try:
-                # Fallback: remove trailing commas before closing braces/brackets
-                fixed_text = re.sub(r",\s*([\]}])", r"\1", clean_text)
-                return json.loads(fixed_text)
-            except Exception:
-                raise ValueError(f"Failed to parse structured JSON from LLM: {response_text}. Error: {e}")
+            raise ValueError(f"Failed to parse structured JSON from LLM: {response_text}. Error: {e}")
 
     def _map_tool_to_stage(self, tool_name: str) -> str:
         """Maps tool names to standard dashboard timeline stages."""
