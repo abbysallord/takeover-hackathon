@@ -256,6 +256,21 @@ export function KnowledgeEditPage() {
 
   return (
     <PageTransition>
+      {isApplying && (
+        <div className="fixed inset-0 bg-[#0c0c0e]/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] animate-fade-in">
+          <div className="w-12 h-12 rounded-full border-2 border-t-transparent border-[#52b788] animate-spin mb-4" />
+          <h3 className="text-white font-medium text-sm">Applying changes & re-indexing RAG...</h3>
+          <p className="text-xs text-white/40 mt-1">Updating product catalog files and stock records</p>
+        </div>
+      )}
+
+      {isProposing && (
+        <div className="fixed inset-0 bg-[#0c0c0e]/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] animate-fade-in">
+          <div className="w-12 h-12 rounded-full border-2 border-t-transparent border-[#3b82f6] animate-spin mb-4" />
+          <h3 className="text-white font-medium text-sm">Generating AI edit proposal...</h3>
+          <p className="text-xs text-white/40 mt-1">Analyzing original content and your instructions</p>
+        </div>
+      )}
       <div className="animate-fade-up">
         {/* Top bar header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">

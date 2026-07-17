@@ -126,6 +126,13 @@ export function KnowledgePage() {
 
   return (
     <PageTransition>
+      {isUploading && (
+        <div className="fixed inset-0 bg-[#0c0c0e]/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] animate-fade-in">
+          <div className="w-12 h-12 rounded-full border-2 border-t-transparent border-[#3b82f6] animate-spin mb-4" />
+          <h3 className="text-white font-medium text-sm">Parsing stock documents & updating RAG...</h3>
+          <p className="text-xs text-white/40 mt-1">Analyzing SKU patterns and auto-syncing inventory</p>
+        </div>
+      )}
       <div className="animate-fade-up">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
