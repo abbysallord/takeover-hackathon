@@ -127,6 +127,22 @@ async def poll_gmail_inbox(db: Session) -> None:
                 continue
 
             msg = msg_res.json()
+            
+            # Check if email is older than the workspace creation date
+            internal_date_ms = msg.get("internalDate")
+            if internal_date_ms and workspace.created_at:
+                msg_date = datetime.fromtimestamp(int(internal_date_ms) / 1000.0)
+                # Allow a margin of 5 minutes for clock skew or creation delay
+                if msg_date < workspace.created_at - timedelta(minutes=5):
+                    print(f"⏭️ Skipping old email received before workspace creation (Date: {msg_date}, Workspace Created: {workspace.created_at})")
+                    # Mark read so it won't be fetched again
+                    await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}/modify",
+                        headers=headers,
+                        json={"removeLabelIds": ["UNREAD"]},
+                    )
+                    continue
+
             headers_list = msg.get("payload", {}).get("headers", [])
 
             sender = "unknown@sender.com"

@@ -33,23 +33,24 @@ def get_dashboard(db: Session = Depends(get_db)) -> DashboardResponse:
     emails_received = wf_stats["total"]
     quotes_generated = db.query(Quotation).count()
     
-    completed_workflows = db.query(Workflow).filter(Workflow.status == "COMPLETED").all()
+    completed_workflows = db.query(Workflow.created_at, Workflow.updated_at).filter(Workflow.status == "COMPLETED").limit(100).all()
     if completed_workflows:
         total_time = 0.0
-        for wf in completed_workflows:
-            duration = (wf.updated_at - wf.created_at).total_seconds()
+        for created_at, updated_at in completed_workflows:
+            duration = (updated_at - created_at).total_seconds()
             total_time += duration
         avg_response_time = total_time / len(completed_workflows)
     else:
         avg_response_time = 0.0
         
-    estimated_time_saved = len(completed_workflows) * 15.0  # 15 mins saved per completed workflow
+    completed_count = db.query(Workflow).filter(Workflow.status == "COMPLETED").count()
+    estimated_time_saved = completed_count * 15.0  # 15 mins saved per completed workflow
     
-    steps = db.query(WorkflowStep).all()
+    steps_data = db.query(WorkflowStep.input_data).filter(WorkflowStep.input_data.isnot(None)).order_by(WorkflowStep.started_at.desc()).limit(200).all()
     confidences = []
-    for step in steps:
-        if step.input_data and isinstance(step.input_data, dict):
-            conf = step.input_data.get("confidence")
+    for (input_data,) in steps_data:
+        if isinstance(input_data, dict):
+            conf = input_data.get("confidence")
             if conf is not None:
                 confidences.append(float(conf))
     avg_confidence = sum(confidences) / len(confidences) if confidences else 1.0

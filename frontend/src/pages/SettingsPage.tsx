@@ -15,6 +15,29 @@ export function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  // WhatsApp Integration States
+  const [waConnected, setWaConnected] = useState(false);
+  const [waQr, setWaQr] = useState<string | null>(null);
+  const [waPhone, setWaPhone] = useState<string | null>(null);
+
+  const checkWhatsAppStatus = async () => {
+    try {
+      const res = await fetch('http://localhost:3000/auth/qr');
+      const data = await res.json();
+      setWaConnected(data.connected);
+      setWaQr(data.qr);
+      if (data.connected) {
+        const statusRes = await fetch('http://localhost:3000/auth/status');
+        const statusData = await statusRes.json();
+        setWaPhone(statusData.phone);
+      }
+    } catch (e) {
+      // Quietly ignore if sidecar is not running
+      setWaConnected(false);
+      setWaQr(null);
+    }
+  };
+
   // Form Fields
   const [companyName, setCompanyName] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
@@ -67,6 +90,17 @@ export function SettingsPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (activeTab === 'Integrations') {
+      checkWhatsAppStatus();
+      interval = setInterval(checkWhatsAppStatus, 5000);
+    } else {
+      setWaQr(null);
+    }
+    return () => clearInterval(interval);
+  }, [activeTab]);
 
   const handleSave = async () => {
     if (!companyName || !companyName.trim()) {
@@ -341,6 +375,52 @@ export function SettingsPage() {
                           >
                             Connect Gmail Inbox
                           </button>
+                        )}
+                      </Card>
+
+                      {/* WhatsApp Baileys Integration status */}
+                      <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded bg-white/5 flex items-center justify-center ${waConnected ? 'text-[#28c840]' : 'text-white/30'}`}>
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.967C16.58 1.972 14.106.945 11.99.945c-5.442 0-9.866 4.372-9.87 9.802 0 1.92.512 3.792 1.48 5.467l-.985 3.6 3.69-.97-.248.146zm11.967-7.661c-.32-.16-1.89-.93-2.185-1.04-.294-.11-.51-.16-.723.16-.21.32-.82.104-1.004.32-.185.22-.37.24-.69.08-.314-.16-1.33-.49-2.53-1.56-.94-.84-1.57-1.87-1.75-2.19-.19-.32-.02-.49.14-.65.15-.14.32-.37.49-.56.17-.18.22-.31.34-.52.11-.21.05-.4-.03-.56-.08-.16-.72-1.74-.99-2.39-.26-.64-.53-.55-.72-.56-.19-.01-.41-.01-.63-.01-.22 0-.58.08-.88.4-.3.32-1.15 1.12-1.15 2.73 0 1.61 1.17 3.16 1.33 3.38.16.22 2.3 3.52 5.58 4.94.78.34 1.39.54 1.86.69.78.25 1.49.21 2.06.13.63-.09 1.89-.77 2.15-1.48.27-.71.27-1.32.19-1.45-.08-.12-.3-.21-.62-.37z"/>
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <div className="text-xs text-white font-semibold">WhatsApp Automation Gateway</div>
+                              <div className="text-[10px] text-white/40 mt-0.5">
+                                {waConnected 
+                                  ? `Connected as ${waPhone || 'Active Client'}` 
+                                  : "Local WhatsApp sidecar service must be running on port 3000"}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {waConnected && (
+                            <span className="text-[10px] text-[#28c840] font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-4 h-4" /> Connected
+                            </span>
+                          )}
+                        </div>
+
+                        {!waConnected && (
+                          <div className="border-t border-white/5 pt-4 mt-2">
+                            {waQr ? (
+                              <div className="flex flex-col items-center gap-3 py-4">
+                                <div className="bg-white p-3 rounded-2xl w-48 h-48 flex items-center justify-center border border-white/10 shadow-lg">
+                                  <img src={waQr} alt="WhatsApp QR Code" className="w-full h-full" />
+                                </div>
+                                <span className="text-[10px] text-white/50 text-center max-w-[280px]">
+                                  Scan this QR code using your WhatsApp app (Linked Devices) to link your automated sales assistant.
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-[10px] text-white/30 italic">
+                                Awaiting connection to local WhatsApp service... Ensure 'npm start' is running in the 'whatsapp-service/' folder.
+                              </div>
+                            )}
+                          </div>
                         )}
                       </Card>
                     </div>
