@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { UploadCloud, FileText, Trash2, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { UploadCloud, FileText, Trash2, ShieldAlert, RefreshCw, CheckCircle2, Sparkles } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
 import { useToast } from '../components/ui/ToastContext';
@@ -7,6 +8,7 @@ import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
 
 export function KnowledgePage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docs, setDocs] = useState<any[]>([]);
@@ -202,6 +204,16 @@ export function KnowledgePage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant="success">RAG Active</Badge>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard/knowledge/edit/${doc.category}/${doc.name}`);
+                      }}
+                      className="p-1.5 text-white/40 hover:text-[#3b82f6] hover:bg-white/5 rounded transition-colors"
+                      title="Edit source document with AI"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();

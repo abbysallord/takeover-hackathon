@@ -15,6 +15,7 @@ import { QuotationsPage } from './pages/QuotationsPage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { KnowledgePage } from './pages/KnowledgePage';
+import { KnowledgeEditPage } from './pages/KnowledgeEditPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OnboardingPage } from './pages/OnboardingPage';
@@ -44,7 +45,9 @@ function MainRoutes() {
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="knowledge/edit/:category/:filename" element={<KnowledgeEditPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<PlaceholderPage />} />
         </Route>
