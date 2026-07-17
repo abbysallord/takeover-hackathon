@@ -22,6 +22,7 @@ export function KnowledgeEditPage() {
   const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
   const [editableContent, setEditableContent] = useState('');
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [passcode, setPasscode] = useState('');
 
   // UI state
   const [isLoadingFiles, setIsLoadingFiles] = useState(true);
@@ -160,6 +161,8 @@ export function KnowledgeEditPage() {
     } finally {
       setIsDiscarding(false);
     }
+  };
+
   const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditableContent(e.target.value);
   };

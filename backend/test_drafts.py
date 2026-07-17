@@ -133,5 +133,30 @@ class TestKnowledgeDrafts(unittest.TestCase):
         drafts = res_drafts.json()
         self.assertEqual(len(drafts), 0)
 
+        # 5. Save draft directly (direct manual editing)
+        direct_payload = {
+            "category": "products",
+            "filename": "widget_test.md",
+            "draft_content": "Widget Test: $15.50\nStock: 99\n",
+            "instruction": "Manual Direct Edit"
+        }
+        res_direct = self.client.post("/knowledge/draft", json=direct_payload)
+        self.assertEqual(res_direct.status_code, 200)
+        
+        # Verify it lists in drafts
+        res_drafts = self.client.get("/knowledge/drafts")
+        drafts = res_drafts.json()
+        self.assertEqual(len(drafts), 1)
+        self.assertEqual(drafts[0]["draft_content"], "Widget Test: $15.50\nStock: 99\n")
+        
+        # Clean it up by discarding it
+        res_discard = self.client.post("/knowledge/discard-draft", json=discard_payload)
+        self.assertEqual(res_discard.status_code, 200)
+        
+        # Verify draft deleted
+        res_drafts = self.client.get("/knowledge/drafts")
+        drafts = res_drafts.json()
+        self.assertEqual(len(drafts), 0)
+
 if __name__ == "__main__":
     unittest.main()
