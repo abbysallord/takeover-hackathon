@@ -65,6 +65,7 @@ app.use(express.json());
 let sock = null;
 let qrCodeData = null;
 let isConnected = false;
+const cooldowns = new Map();
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -106,6 +107,15 @@ async function connectToWhatsApp() {
             for (const msg of chatUpdate.messages) {
                 const jid = msg.key.remoteJid;
                 if (msg.key.fromMe || jid === 'status@broadcast') continue;
+
+                // 5-second per-user cooldown check to prevent rate-limit spikes
+                const now = Date.now();
+                const lastTime = cooldowns.get(jid) || 0;
+                if (now - lastTime < 5000) {
+                    console.log(`⏭️ Ignored message from ${jid} due to 5-second cooldown.`);
+                    continue;
+                }
+                cooldowns.set(jid, now);
 
                 // Extract plain text message content
                 const text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
