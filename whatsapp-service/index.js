@@ -52,11 +52,30 @@ async function askAI(userMessage, systemInstruction) {
     }
 }
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, getContentType } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const express = require('express');
 const cors = require('cors');
 const QRCode = require('qrcode');
+
+function getMessageText(message) {
+  if (!message) return '';
+  const type = getContentType(message);
+  if (!type) return '';
+  
+  if (type === 'conversation') {
+    return message.conversation;
+  } else if (type === 'extendedTextMessage') {
+    return message.extendedTextMessage.text;
+  } else if (type === 'imageMessage' || type === 'videoMessage') {
+    return message[type].caption || '';
+  } else if (type === 'buttonsResponseMessage') {
+    return message.buttonsResponseMessage.selectedButtonId || '';
+  } else if (type === 'templateButtonReplyMessage') {
+    return message.templateButtonReplyMessage.selectedId || '';
+  }
+  return '';
+}
 
 const app = express();
 app.use(cors());
@@ -117,9 +136,12 @@ async function connectToWhatsApp() {
                 }
                 cooldowns.set(jid, now);
 
-                // Extract plain text message content
-                const text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
-                if (!text) continue;
+                // Extract plain text message content using the proven helper
+                const text = getMessageText(msg.message).trim();
+                if (!text) {
+                    console.log(`⚠️ Skip message from ${jid} (Empty text content or unsupported format)`);
+                    continue;
+                }
 
                 // Restrict group chats to avoid loop spamming
                 const isGroup = jid.endsWith('@g.us');
