@@ -21,6 +21,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { PresentationPage } from './pages/PresentationPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { TermsPage } from './pages/TermsPage';
 
 function MainRoutes() {
   const location = useLocation();
@@ -34,6 +35,7 @@ function MainRoutes() {
         <Route path="/toolkit" element={<ToolkitPage />} />
         <Route path="/ppt" element={<PresentationPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardOverview />} />
