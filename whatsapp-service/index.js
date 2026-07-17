@@ -146,7 +146,7 @@ async function connectToWhatsApp() {
                 // Process sales opportunity lead and route to Flow backend
                 console.log(`🚀 Qualified sales lead from ${jid}: "${text}"`);
                 
-                const workspaceApiUrl = 'https://flow-backend-api.azurewebsites.net';
+                const workspaceApiUrl = process.env.BACKEND_URL || 'https://flow-backend-api.azurewebsites.net';
                 let cleanPhone = jid.replace(/\D/g, '');
                 const mockEmail = `${cleanPhone}@whatsapp.flow.hackarena.dev`;
 
