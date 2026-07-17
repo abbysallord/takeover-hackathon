@@ -40,6 +40,7 @@ def get_knowledge_files() -> List[Dict[str, Any]]:
 async def upload_knowledge_file(
     category: str = "general",
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Uploads a markdown/text document into the knowledge base, triggering RAG re-indexing."""
     if not file.filename.endswith((".md", ".txt", ".csv")):
@@ -62,6 +63,14 @@ async def upload_knowledge_file(
         # Mark RAG retriever for re-indexing
         from app.services.rag_service import rag_service
         rag_service._is_initialized = False
+
+        # Synchronize database inventory if upload contains product/stock details
+        try:
+            text_content = content.decode("utf-8")
+            from app.services.inventory_sync_service import sync_inventory_from_knowledge
+            sync_inventory_from_knowledge(db, text_content)
+        except Exception as sync_ex:
+            print(f"⚠️ Failed to sync inventory on upload: {sync_ex}")
 
         return {
             "success": True,
@@ -332,6 +341,13 @@ def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
     try:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content_to_write)
+            
+        # Synchronize database inventory if catalog/stocks were edited
+        try:
+            from app.services.inventory_sync_service import sync_inventory_from_knowledge
+            sync_inventory_from_knowledge(db, content_to_write)
+        except Exception as sync_ex:
+            print(f"⚠️ Failed to sync inventory on edit: {sync_ex}")
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

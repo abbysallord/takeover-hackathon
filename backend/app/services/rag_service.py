@@ -200,7 +200,7 @@ class RAGService:
             matches.sort(key=lambda x: x[1], reverse=True)
             results = [item[0] for item in matches[:top_k]]
 
-        # Live Dynamic Database Override to prevent context divergence
+        # Live Dynamic Database Override to prevent context divergence & gate out-of-stock items
         if results:
             from app.models.database import SessionLocal
             from app.models.models import Inventory
@@ -209,8 +209,28 @@ class RAGService:
                 db_items = db.query(Inventory).all()
                 if db_items:
                     db_map = {item.sku.lower(): item for item in db_items}
+                    filtered_results = []
+                    
                     for res in results:
                         text_lower = res["text"].lower()
+                        
+                        # Check if this document chunk references a product in the inventory
+                        matched_in_inventory = False
+                        has_stock = False
+                        
+                        for sku, item in db_map.items():
+                            prod_name_lower = item.product_name.lower().strip()
+                            if sku in text_lower or prod_name_lower in text_lower:
+                                matched_in_inventory = True
+                                if item.current_stock > 0:
+                                    has_stock = True
+                        
+                        # GATING RULE: If the chunk matches a product, but that product has NO stock,
+                        # we exclude this chunk from RAG results. This triggers the AI flow to bypass.
+                        if matched_in_inventory and not has_stock:
+                            print(f"[RAG Gating] Excluded chunk from '{res['source']}' because product is out of stock.")
+                            continue
+                        
                         overrides = []
                         for sku, item in db_map.items():
                             prod_name_lower = item.product_name.lower().strip()
@@ -220,8 +240,11 @@ class RAGService:
                                 )
                         if overrides:
                             res["text"] += "\n\n" + "\n".join(overrides)
+                        
+                        filtered_results.append(res)
+                    results = filtered_results
             except Exception as ex:
-                print(f"⚠️ RAG dynamic override check failed: {ex}")
+                print(f"[WARNING] RAG dynamic override check failed: {ex}")
             finally:
                 db.close()
 
