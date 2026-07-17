@@ -319,3 +319,17 @@ class ApplyEditRequest(BaseModel):
     instruction: str
     passcode: str
 
+
+class DiscardDraftRequest(BaseModel):
+    category: str
+    filename: str
+
+
+class SaveDraftRequest(BaseModel):
+    category: str
+    filename: str
+    draft_content: str
+    instruction: Optional[str] = None
+
+
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Sparkles, AlertCircle, ShieldAlert, Key, Check, ChevronLeft, ChevronRight, RefreshCw, Eye } from 'lucide-react';
+import { FileText, Sparkles, AlertCircle, ShieldAlert, Key, Check, ChevronLeft, ChevronRight, RefreshCw, Eye, Trash2 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
 import { useToast } from '../components/ui/ToastContext';
@@ -13,20 +13,34 @@ export function KnowledgeEditPage() {
   const { toast } = useToast();
 
   const [files, setFiles] = useState<any[]>([]);
+  const [drafts, setDrafts] = useState<any[]>([]);
   const [selectedFile, setSelectedFile] = useState<any | null>(null);
   const [fileContent, setFileContent] = useState('');
   const [instruction, setInstruction] = useState('');
   const [proposedContent, setProposedContent] = useState('');
   const [diffSummary, setDiffSummary] = useState('');
-  const [passcode, setPasscode] = useState('');
+  const [activeTab, setActiveTab] = useState<'view' | 'edit'>('view');
+  const [editableContent, setEditableContent] = useState('');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   // UI state
   const [isLoadingFiles, setIsLoadingFiles] = useState(true);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isProposing, setIsProposing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
   const [isPasscodeOpen, setIsPasscodeOpen] = useState(false);
   const [hasProposed, setHasProposed] = useState(false);
+
+  // Load all active drafts
+  const loadDrafts = async () => {
+    try {
+      const data = await mockApi.getKnowledgeDrafts();
+      setDrafts(data);
+    } catch (e) {
+      console.error("Failed to load drafts:", e);
+    }
+  };
 
   // Load all knowledge files to show in the sidebar
   const loadFiles = async () => {
@@ -34,6 +48,7 @@ export function KnowledgeEditPage() {
       setIsLoadingFiles(true);
       const data = await mockApi.getKnowledgeFiles();
       setFiles(data);
+      await loadDrafts();
       
       // Select the current file from params
       if (paramCategory && paramFilename) {
@@ -62,8 +77,19 @@ export function KnowledgeEditPage() {
       setProposedContent('');
       setDiffSummary('');
       setHasProposed(false);
-      const content = await mockApi.getKnowledgeFileContent(file.category, file.name);
-      setFileContent(content);
+      const res = await mockApi.getKnowledgeFileContent(file.category, file.name);
+      setFileContent(res.content);
+      
+      if (res.draft) {
+        setProposedContent(res.draft.draft_content);
+        setDiffSummary(res.draft.diff_summary);
+        setInstruction(res.draft.instruction || '');
+        setEditableContent(res.draft.draft_content);
+        setHasProposed(true);
+      } else {
+        setInstruction('');
+        setEditableContent(res.content);
+      }
     } catch (e) {
       console.error(e);
       toast('Failed to read file content.', 'error');
@@ -84,7 +110,7 @@ export function KnowledgeEditPage() {
 
   const handleSelectFile = (file: any) => {
     setSelectedFile(file);
-    navigate(`/dashboard/knowledge/edit/${file.category}/${file.name}`);
+    navigate(`/dashboard/knowledge/file/edit/${file.category}/${file.name}`);
   };
 
   const handleGenerateProposal = async (e: React.FormEvent) => {
@@ -98,7 +124,10 @@ export function KnowledgeEditPage() {
         setProposedContent(res.proposed_content);
         setDiffSummary(res.diff_summary);
         setHasProposed(true);
-        toast('AI Proposal generated successfully!', 'success');
+        toast('AI Proposal saved to drafts!', 'success');
+        
+        // Refresh sidebar tags/badges
+        await loadFiles();
       } else {
         toast('Failed to generate proposal.', 'error');
       }
@@ -107,6 +136,57 @@ export function KnowledgeEditPage() {
       toast('Error communicating with LLM service.', 'error');
     } finally {
       setIsProposing(false);
+    }
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!selectedFile) return;
+    if (!window.confirm("Are you sure you want to discard this draft? Uncommitted changes will be lost.")) return;
+
+    try {
+      setIsDiscarding(true);
+      const res = await mockApi.discardKnowledgeDraft(selectedFile.category, selectedFile.name);
+      if (res && res.success) {
+        toast('Draft discarded successfully.', 'success');
+        // Reload files list to update sidebar badges, and reload file content
+        await loadFiles();
+        await loadFileContent(selectedFile);
+      } else {
+        toast('Failed to discard draft.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('Error discarding draft.', 'error');
+    } finally {
+      setIsDiscarding(false);
+    }
+  const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditableContent(e.target.value);
+  };
+
+  const handleSaveDirectEdit = async () => {
+    if (!selectedFile) return;
+    try {
+      setIsSavingDraft(true);
+      const res = await mockApi.saveKnowledgeDraft(
+        selectedFile.category,
+        selectedFile.name,
+        editableContent,
+        "Direct manual edit"
+      );
+      if (res && res.success) {
+        toast('Manual changes saved to draft!', 'success');
+        // Reload draft and file content to update diff and badges!
+        await loadFiles();
+        await loadFileContent(selectedFile);
+      } else {
+        toast('Failed to save manual changes.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      toast('Error saving changes.', 'error');
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -130,7 +210,8 @@ export function KnowledgeEditPage() {
         setProposedContent('');
         setDiffSummary('');
         setHasProposed(false);
-        // Reload fresh content
+        // Reload fresh content and files list to update badges
+        await loadFiles();
         loadFileContent(selectedFile);
       } else {
         toast('Failed to apply changes. Check your security passcode.', 'error');
@@ -142,6 +223,7 @@ export function KnowledgeEditPage() {
       setIsApplying(false);
     }
   };
+
 
   // Render unified diff line by line with premium visual styling
   const renderDiff = () => {
@@ -208,24 +290,32 @@ export function KnowledgeEditPage() {
               ) : (
                 files.map((file, idx) => {
                   const isSelected = selectedFile?.category === file.category && selectedFile?.name === file.name;
+                  const hasDraft = drafts.some(d => d.category === file.category && d.filename === file.name);
                   return (
                     <div
                       key={idx}
                       onClick={() => handleSelectFile(file)}
-                      className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                      className={`p-3 rounded-xl border flex flex-col gap-2 cursor-pointer transition-all ${
                         isSelected 
                           ? 'bg-[#3b82f6]/15 border-[#3b82f6] text-white shadow-md' 
                           : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10 text-white/60'
                       }`}
                     >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <FileText className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-[#3b82f6]' : 'text-white/40'}`} />
-                        <div className="overflow-hidden">
-                          <div className="text-xs font-medium truncate">{file.name}</div>
-                          <div className="text-[9px] opacity-55 mt-0.5 uppercase tracking-wider font-semibold">{file.category}</div>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <FileText className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'text-[#3b82f6]' : 'text-white/40'}`} />
+                          <div className="overflow-hidden">
+                            <div className="text-xs font-medium truncate">{file.name}</div>
+                            <div className="text-[9px] opacity-55 mt-0.5 uppercase tracking-wider font-semibold">{file.category}</div>
+                          </div>
                         </div>
+                        <ChevronRight className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 opacity-40 flex-shrink-0" />
+                      {hasDraft && (
+                        <div className="pl-7">
+                          <Badge variant="warning">Uncommitted Draft</Badge>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -249,22 +339,89 @@ export function KnowledgeEditPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">RAG Synced</Badge>
+                  {hasProposed ? (
+                    <Badge variant="warning">Uncommitted Draft</Badge>
+                  ) : (
+                    <Badge variant="success">RAG Synced</Badge>
+                  )}
                 </div>
               </div>
 
-              {/* Raw File Viewer */}
+              {/* Raw File Viewer or Direct Editor */}
               <div>
-                <label className="text-[10px] uppercase font-semibold tracking-wider text-white/40 block mb-2">Original Document Source</label>
-                <div className="bg-black/30 border border-white/5 rounded-xl p-4 font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto text-white/80">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-[10px] uppercase font-semibold tracking-wider text-white/40">
+                    {activeTab === 'view' ? 'Original Document Source' : 'Direct Workspace Editor (Draft)'}
+                  </label>
+                  <div className="flex bg-white/5 border border-white/10 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setActiveTab('view')}
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-all ${
+                        activeTab === 'view'
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-white/40 hover:text-white/80'
+                      }`}
+                    >
+                      View Source
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('edit');
+                        if (proposedContent) {
+                          setEditableContent(proposedContent);
+                        } else {
+                          setEditableContent(fileContent);
+                        }
+                      }}
+                      className={`px-3 py-1 text-[10px] font-medium rounded-md transition-all ${
+                        activeTab === 'edit'
+                          ? 'bg-[#3b82f6]/20 text-[#3b82f6] shadow-sm border border-[#3b82f6]/20'
+                          : 'text-white/40 hover:text-white/80'
+                      }`}
+                    >
+                      Edit Directly
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
                   {isLoadingContent ? (
-                    <div className="flex items-center gap-2 text-white/40 text-xs py-4 justify-center">
+                    <div className="bg-black/30 border border-white/5 rounded-xl p-4 font-mono text-[11px] leading-relaxed max-h-72 min-h-[200px] flex items-center justify-center gap-2 text-white/40">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading file contents...
                     </div>
-                  ) : fileContent ? (
-                    <pre className="whitespace-pre-wrap">{fileContent}</pre>
+                  ) : activeTab === 'view' ? (
+                    <div className="bg-black/30 border border-white/5 rounded-xl p-4 font-mono text-[11px] leading-relaxed max-h-72 overflow-y-auto text-white/80">
+                      <pre className="whitespace-pre-wrap">{fileContent}</pre>
+                    </div>
                   ) : (
-                    <div className="text-white/40 italic py-4 justify-center text-center">Empty content.</div>
+                    <div className="flex flex-col gap-3">
+                      <textarea
+                        value={editableContent}
+                        onChange={handleEditorChange}
+                        rows={12}
+                        className="w-full bg-black/40 border border-white/10 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-white placeholder-white/20 outline-none focus:ring-1 focus:ring-[#3b82f6] resize-y min-h-[200px] max-h-[400px]"
+                        placeholder="Start typing to modify this document directly..."
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleSaveDirectEdit}
+                          disabled={isSavingDraft || isLoadingContent}
+                          className="px-4 py-2 bg-gradient-to-r from-[#3b82f6] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {isSavingDraft ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3 h-3" />
+                              Save Draft Changes
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -325,13 +482,23 @@ export function KnowledgeEditPage() {
                 </div>
 
                 {hasProposed && (
-                  <button
-                    onClick={() => setIsPasscodeOpen(true)}
-                    className="w-full bg-gradient-to-r from-[#52b788] to-[#28c840] hover:from-[#40916c] hover:to-[#1b4332] text-white font-semibold text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 active:scale-98"
-                  >
-                    <Check className="w-4 h-4" />
-                    Accept and Publish Changes
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full">
+                    <button
+                      onClick={handleDiscardDraft}
+                      disabled={isDiscarding}
+                      className="flex-1 bg-white/5 border border-white/10 hover:bg-[#ff5f57]/20 hover:border-[#ff5f57]/30 hover:text-[#ff5f57] text-white/80 font-semibold text-xs px-4 py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {isDiscarding ? 'Discarding...' : 'Discard Draft'}
+                    </button>
+                    <button
+                      onClick={() => setIsPasscodeOpen(true)}
+                      className="flex-[2] bg-gradient-to-r from-[#52b788] to-[#28c840] hover:from-[#40916c] hover:to-[#1b4332] text-white font-semibold text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 active:scale-98"
+                    >
+                      <Check className="w-4 h-4" />
+                      Accept and Publish
+                    </button>
+                  </div>
                 )}
               </div>
 

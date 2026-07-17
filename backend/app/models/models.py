@@ -184,3 +184,15 @@ class KnowledgeEditLog(Base):
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
+class KnowledgeDraft(Base):
+    __tablename__ = "knowledge_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(100))
+    draft_content: Mapped[str] = mapped_column(Text)
+    instruction: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+
+
+

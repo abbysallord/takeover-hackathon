@@ -52,8 +52,9 @@ def main():
         os.remove("takeover_test.db")
         
     server_log = open("test_server.log", "w", buffering=1)
+    python_bin = sys.executable
     server_process = subprocess.Popen(
-        ["venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(PORT)],
+        [python_bin, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(PORT)],
         stdout=server_log,
         stderr=server_log,
         env=env

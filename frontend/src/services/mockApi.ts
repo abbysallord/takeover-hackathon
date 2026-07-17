@@ -525,15 +525,14 @@ export const mockApi = {
     }
   },
 
-  getKnowledgeFileContent: async (category: string, filename: string): Promise<string> => {
+  getKnowledgeFileContent: async (category: string, filename: string): Promise<any> => {
     try {
       const res = await fetch(`${API_BASE}/knowledge/files/${category}/${filename}`);
       if (!res.ok) throw new Error("Fetch file content failed");
-      const data = await res.json();
-      return data.content;
+      return await res.json();
     } catch (e) {
       console.error("Error reading file:", e);
-      return "Failed to load document content.";
+      return { content: "Failed to load document content.", draft: null };
     }
   },
 
@@ -613,6 +612,48 @@ export const mockApi = {
       console.error("Error applying knowledge edit:", e);
       return null;
     }
+  },
+
+  getKnowledgeDrafts: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/drafts`);
+      if (!res.ok) throw new Error("Fetch drafts failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching knowledge drafts:", e);
+      return [];
+    }
+  },
+
+  discardKnowledgeDraft: async (category: string, filename: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/discard-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, filename })
+      });
+      if (!res.ok) throw new Error("Discard draft failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error discarding knowledge draft:", e);
+      return null;
+    }
+  },
+
+  saveKnowledgeDraft: async (category: string, filename: string, draft_content: string, instruction?: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, filename, draft_content, instruction })
+      });
+      if (!res.ok) throw new Error("Save draft failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error saving knowledge draft:", e);
+      return null;
+    }
   }
 };
+
 

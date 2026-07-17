@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.schemas.schemas import ProposeEditRequest, ProposeEditResponse, ApplyEditRequest
+from app.schemas.schemas import ProposeEditRequest, ProposeEditResponse, ApplyEditRequest, DiscardDraftRequest, SaveDraftRequest
+from app.models.models import KnowledgeDraft
 
 router = APIRouter(tags=["Knowledge"])
+
 
 
 @router.get("/knowledge/files", response_model=List[Dict[str, Any]])
@@ -107,8 +109,8 @@ def delete_knowledge_file(category: str, filename: str) -> Dict[str, Any]:
 
 
 @router.get("/knowledge/files/{category}/{filename}")
-def get_knowledge_file_content(category: str, filename: str) -> Dict[str, Any]:
-    """Retrieves the raw text content of a document from the knowledge base."""
+def get_knowledge_file_content(category: str, filename: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Retrieves the raw text content of a document from the knowledge base, along with any active draft."""
     category = "".join(c for c in category if c.isalnum() or c in ("-", "_"))
     filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_"))
     
@@ -122,7 +124,30 @@ def get_knowledge_file_content(category: str, filename: str) -> Dict[str, Any]:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return {"content": content}
+        
+        draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
+        draft_data = None
+        if draft:
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                content.splitlines(),
+                draft.draft_content.splitlines(),
+                fromfile='a/' + filename,
+                tofile='b/' + filename,
+                lineterm=''
+            ))
+            diff_summary = "\n".join(diff_lines)
+            draft_data = {
+                "draft_content": draft.draft_content,
+                "instruction": draft.instruction,
+                "diff_summary": diff_summary,
+                "updated_at": draft.updated_at.isoformat() if draft.updated_at else None
+            }
+            
+        return {
+            "content": content,
+            "draft": draft_data
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -130,9 +155,10 @@ def get_knowledge_file_content(category: str, filename: str) -> Dict[str, Any]:
         )
 
 
+
 @router.post("/knowledge/propose-edit", response_model=ProposeEditResponse)
-def propose_knowledge_edit(data: ProposeEditRequest) -> ProposeEditResponse:
-    """Proposes an inline modification to a document using LLM or local fallback parser."""
+def propose_knowledge_edit(data: ProposeEditRequest, db: Session = Depends(get_db)) -> ProposeEditResponse:
+    """Proposes an inline modification to a document, automatically saving it to the database drafts."""
     category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
     filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
     
@@ -153,18 +179,22 @@ def propose_knowledge_edit(data: ProposeEditRequest) -> ProposeEditResponse:
             detail=f"Failed to read file: {str(e)}",
         )
 
+    # Check for existing draft to stack modifications
+    draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
+    baseline_content = draft.draft_content if draft else original_content
+
     # Generate proposal
     from app.core.provider import llm_provider
     
     if llm_provider.is_mock_key():
-        proposed_content = mock_propose_edit_fallback(original_content, data.instruction)
+        proposed_content = mock_propose_edit_fallback(baseline_content, data.instruction)
     else:
         system_prompt = (
             "You are an expert technical editor. Your job is to modify the provided text based on the user's instructions.\n"
             "Ensure you return ONLY the fully modified file content. Do not add any conversational text, explanations, markdown code blocks (like ```markdown), or notes. Just output the content directly.\n\n"
             "Original Content:\n"
             "==================\n"
-            f"{original_content}\n"
+            f"{baseline_content}\n"
             "==================\n"
             "Instruction:\n"
             f"{data.instruction}\n"
@@ -179,9 +209,9 @@ def propose_knowledge_edit(data: ProposeEditRequest) -> ProposeEditResponse:
                     lines = lines[:-1]
                 proposed_content = "\n".join(lines)
         except Exception as e:
-            proposed_content = mock_propose_edit_fallback(original_content, data.instruction)
+            proposed_content = mock_propose_edit_fallback(baseline_content, data.instruction)
 
-    # Compute diff
+    # Compute diff between the original file on disk and the new proposed draft content
     import difflib
     diff_lines = list(difflib.unified_diff(
         original_content.splitlines(),
@@ -192,12 +222,27 @@ def propose_knowledge_edit(data: ProposeEditRequest) -> ProposeEditResponse:
     ))
     diff_summary = "\n".join(diff_lines)
 
+    # Save to draft
+    if draft:
+        draft.draft_content = proposed_content
+        draft.instruction = data.instruction
+    else:
+        draft = KnowledgeDraft(
+            filename=filename,
+            category=category,
+            draft_content=proposed_content,
+            instruction=data.instruction
+        )
+        db.add(draft)
+    db.commit()
+
     return ProposeEditResponse(
         success=True,
         original_content=original_content,
         proposed_content=proposed_content,
         diff_summary=diff_summary
     )
+
 
 
 def mock_propose_edit_fallback(original_content: str, instruction: str) -> str:
@@ -251,7 +296,7 @@ def mock_propose_edit_fallback(original_content: str, instruction: str) -> str:
 
 @router.post("/knowledge/apply-edit")
 def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
-    """Applies the proposed edit, checks passcode security, updates RAG, and creates log/notification."""
+    """Applies the proposed edit (or active draft), checks passcode security, updates RAG, clears draft, and creates log/notification."""
     from app.models.models import Workspace, KnowledgeEditLog, Notification
     import hashlib
     
@@ -275,14 +320,27 @@ def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
             detail=f"File {filename} not found in category {category}.",
         )
 
+    # Find the active draft to apply
+    draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
+    
+    content_to_write = data.proposed_content
+    instruction = data.instruction
+    if draft:
+        content_to_write = draft.draft_content
+        instruction = draft.instruction or data.instruction
+
     try:
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(data.proposed_content)
+            f.write(content_to_write)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to write modifications to file: {str(e)}",
         )
+
+    # Delete draft if applied
+    if draft:
+        db.delete(draft)
 
     rag_service._is_initialized = False
 
@@ -290,7 +348,7 @@ def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
         filename=filename,
         category=category,
         editor_identity="ADMIN",
-        instruction=data.instruction,
+        instruction=instruction,
         diff_summary=f"Changed file: {filename}",
         status="APPLIED"
     )
@@ -298,11 +356,71 @@ def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
 
     notif = Notification(
         type="KNOWLEDGE_UPDATED",
-        message=f"📝 Knowledge base updated: {filename} in {category}. Instruction: '{data.instruction}'",
+        message=f"📝 Knowledge base updated: {filename} in {category}. Instruction: '{instruction}'",
         read=False
     )
     db.add(notif)
     
     db.commit()
     return {"success": True, "message": f"Successfully updated document {filename}."}
+
+
+@router.get("/knowledge/drafts")
+def get_knowledge_drafts(db: Session = Depends(get_db)):
+    """Returns all active drafts."""
+    drafts = db.query(KnowledgeDraft).all()
+    return [
+        {
+            "id": d.id,
+            "filename": d.filename,
+            "category": d.category,
+            "draft_content": d.draft_content,
+            "instruction": d.instruction,
+            "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+        }
+        for d in drafts
+    ]
+
+
+@router.post("/knowledge/discard-draft")
+def discard_knowledge_draft(data: DiscardDraftRequest, db: Session = Depends(get_db)):
+    """Deletes a saved draft."""
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    
+    draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
+    if not draft:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active draft found for {filename} in category {category}."
+        )
+    
+    db.delete(draft)
+    db.commit()
+    return {"success": True, "message": f"Draft for {filename} discarded successfully."}
+
+
+@router.post("/knowledge/draft")
+def save_knowledge_draft(data: SaveDraftRequest, db: Session = Depends(get_db)):
+    """Saves or updates a draft directly in the database (manual direct editing)."""
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    
+    draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
+    if draft:
+        draft.draft_content = data.draft_content
+        if data.instruction:
+            draft.instruction = data.instruction
+    else:
+        draft = KnowledgeDraft(
+            filename=filename,
+            category=category,
+            draft_content=data.draft_content,
+            instruction=data.instruction or "Manual Edit"
+        )
+        db.add(draft)
+    db.commit()
+    return {"success": True, "message": "Draft saved successfully."}
+
+
 

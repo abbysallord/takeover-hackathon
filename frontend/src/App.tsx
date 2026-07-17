@@ -45,7 +45,8 @@ function MainRoutes() {
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
-          <Route path="knowledge/edit/:category/:filename" element={<KnowledgeEditPage />} />
+          <Route path="knowledge/file/edit" element={<KnowledgeEditPage />} />
+          <Route path="knowledge/file/edit/:category/:filename" element={<KnowledgeEditPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
 
           <Route path="settings" element={<SettingsPage />} />
