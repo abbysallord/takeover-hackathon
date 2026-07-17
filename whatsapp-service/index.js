@@ -44,6 +44,10 @@ async function askAI(userMessage, systemInstruction) {
                 temperature: 0.1
             })
         });
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(`Groq API returned ${response.status}: ${JSON.stringify(errData)}`);
+        }
         const data = await response.json();
         return data.choices?.[0]?.message?.content || "";
     } catch (e) {
