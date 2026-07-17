@@ -25,6 +25,7 @@ from app.api import (
     quotations_router,
     notifications_router,
     knowledge_router,
+    inventory_router,
 )
 
 
@@ -265,3 +266,5 @@ app.include_router(customers_router)
 app.include_router(quotations_router)
 app.include_router(notifications_router)
 app.include_router(knowledge_router)
+app.include_router(inventory_router)
+
