@@ -29,7 +29,7 @@ async function askAI(userMessage, systemInstruction) {
         return "CASUAL_CHAT";
     }
     try {
-        const response = await fetch("https://api.groq.com/openapi/v1/chat/completions", {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${apiKey}`,
