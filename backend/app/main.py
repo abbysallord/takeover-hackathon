@@ -68,6 +68,10 @@ async def gmail_polling_task():
                         TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
                         db = TempSessionLocal()
                         try:
+                            from app.models.database import INITIALIZED_SQLITE_FILES, migrate_schema_columns
+                            if clean_tenant not in INITIALIZED_SQLITE_FILES:
+                                migrate_schema_columns(db, clean_tenant)
+                                INITIALIZED_SQLITE_FILES.add(clean_tenant)
                             await poll_gmail_inbox(db)
                         finally:
                             db.close()

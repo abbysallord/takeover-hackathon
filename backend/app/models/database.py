@@ -60,7 +60,8 @@ def migrate_schema_columns(db, session_id: str) -> None:
     from app.models.models import Workspace, Email
     try:
         inspector = inspect(db.bind)
-        schema_name = f"session_{session_id}" if session_id else None
+        is_sqlite = db.bind.url.drivername == "sqlite"
+        schema_name = None if is_sqlite else (f"session_{session_id}" if session_id else None)
         
         # 1. Migrate workspaces table
         existing_cols = {col['name'] for col in inspector.get_columns('workspaces', schema=schema_name)}
@@ -79,7 +80,7 @@ def migrate_schema_columns(db, session_id: str) -> None:
                 elif "INTEGER" in col_type.upper():
                     sql_type = "INTEGER"
                 
-                table_prefix = f"session_{session_id}." if session_id else ""
+                table_prefix = "" if is_sqlite else (f"session_{session_id}." if session_id else "")
                 sql = f"ALTER TABLE {table_prefix}workspaces ADD COLUMN {col_name} {sql_type};"
                 db.execute(text(sql))
                 db.commit()
@@ -92,7 +93,7 @@ def migrate_schema_columns(db, session_id: str) -> None:
             if col_name not in existing_email_cols:
                 col_type = str(column.type)
                 sql_type = "TEXT" if ("TEXT" in col_type.upper() or "VARCHAR" in col_type.upper()) else col_type
-                table_prefix = f"session_{session_id}." if session_id else ""
+                table_prefix = "" if is_sqlite else (f"session_{session_id}." if session_id else "")
                 sql = f"ALTER TABLE {table_prefix}emails ADD COLUMN {col_name} {sql_type};"
                 db.execute(text(sql))
                 db.commit()
@@ -126,30 +127,26 @@ def get_db(request: Request = None) -> Generator:
                 db_path = f"sqlite:///session_{session_id}.db"
                 temp_engine = create_engine(db_path, connect_args={"check_same_thread": False})
                 
-                if session_id not in INITIALIZED_SQLITE_FILES:
-                    # Import models to ensure they are registered with Base before creating tables
-                    import app.models.models
-                    # Auto-create tables in SQLite file
-                    Base.metadata.create_all(bind=temp_engine)
-                    
-                    TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
-                    db = TempSessionLocal()
-                    try:
+                TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
+                db = TempSessionLocal()
+                try:
+                    if session_id not in INITIALIZED_SQLITE_FILES:
+                        # Import models to ensure they are registered with Base before creating tables
+                        import app.models.models
+                        # Auto-create tables in SQLite file
+                        Base.metadata.create_all(bind=temp_engine)
+                        # Migrate missing columns
+                        migrate_schema_columns(db, session_id)
                         # Seed database if empty
                         from app.services.seed_service import seed_database
                         seed_database(db)
                         db.commit()
                         INITIALIZED_SQLITE_FILES.add(session_id)
-                        yield db
-                    finally:
-                        db.close()
-                else:
-                    TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
-                    db = TempSessionLocal()
-                    try:
-                        yield db
-                    finally:
-                        db.close()
+                    else:
+                        migrate_schema_columns(db, session_id)
+                    yield db
+                finally:
+                    db.close()
             else:
                 db = SessionLocal()
                 try:

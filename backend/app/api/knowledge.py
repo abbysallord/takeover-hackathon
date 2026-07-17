@@ -80,8 +80,8 @@ async def upload_knowledge_file(
 def delete_knowledge_file(category: str, filename: str) -> Dict[str, Any]:
     """Deletes a document from the RAG knowledge base, triggering re-indexing."""
     # Sanitize inputs to prevent path traversal
-    category = "".join(c for c in category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     from app.services.rag_service import rag_service
     file_path = os.path.join(rag_service.knowledge_root, category, filename)
@@ -111,8 +111,8 @@ def delete_knowledge_file(category: str, filename: str) -> Dict[str, Any]:
 @router.get("/knowledge/files/{category}/{filename}")
 def get_knowledge_file_content(category: str, filename: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Retrieves the raw text content of a document from the knowledge base, along with any active draft."""
-    category = "".join(c for c in category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     from app.services.rag_service import rag_service
     file_path = os.path.join(rag_service.knowledge_root, category, filename)
@@ -159,8 +159,8 @@ def get_knowledge_file_content(category: str, filename: str, db: Session = Depen
 @router.post("/knowledge/propose-edit", response_model=ProposeEditResponse)
 def propose_knowledge_edit(data: ProposeEditRequest, db: Session = Depends(get_db)) -> ProposeEditResponse:
     """Proposes an inline modification to a document, automatically saving it to the database drafts."""
-    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     from app.services.rag_service import rag_service
     file_path = os.path.join(rag_service.knowledge_root, category, filename)
@@ -309,8 +309,8 @@ def apply_knowledge_edit(data: ApplyEditRequest, db: Session = Depends(get_db)):
         if workspace.passcode_hash != hashed_entered:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid security passcode.")
 
-    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     from app.services.rag_service import rag_service
     file_path = os.path.join(rag_service.knowledge_root, category, filename)
@@ -385,8 +385,8 @@ def get_knowledge_drafts(db: Session = Depends(get_db)):
 @router.post("/knowledge/discard-draft")
 def discard_knowledge_draft(data: DiscardDraftRequest, db: Session = Depends(get_db)):
     """Deletes a saved draft."""
-    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
     if not draft:
@@ -403,8 +403,8 @@ def discard_knowledge_draft(data: DiscardDraftRequest, db: Session = Depends(get
 @router.post("/knowledge/draft")
 def save_knowledge_draft(data: SaveDraftRequest, db: Session = Depends(get_db)):
     """Saves or updates a draft directly in the database (manual direct editing)."""
-    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_"))
-    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_"))
+    category = "".join(c for c in data.category if c.isalnum() or c in ("-", "_", " "))
+    filename = "".join(c for c in data.filename if c.isalnum() or c in (".", "-", "_", " ", "(", ")", "[", "]"))
     
     draft = db.query(KnowledgeDraft).filter_by(category=category, filename=filename).first()
     if draft:
