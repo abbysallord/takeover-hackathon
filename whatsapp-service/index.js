@@ -178,18 +178,32 @@ async function connectToWhatsApp() {
                 let cleanPhone = jid.replace(/\D/g, '');
                 const mockEmail = `${cleanPhone}@whatsapp.flow.hackarena.dev`;
 
-                const response = await fetch(`${workspaceApiUrl}/workflows/simulate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: mockEmail,
-                        recipient: 'sales@flow.hackarena.dev',
-                        subject: 'WhatsApp Order/Query Placement',
-                        body: `WhatsApp Message content: "${text}"\nCustomer phone number: +${cleanPhone}`
-                    })
-                });
+                let response;
+                let retries = 3;
+                while (retries > 0) {
+                    try {
+                        response = await fetch(`${workspaceApiUrl}/workflows/simulate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                sender: mockEmail,
+                                recipient: 'sales@flow.hackarena.dev',
+                                subject: 'WhatsApp Order/Query Placement',
+                                body: `WhatsApp Message content: "${text}"\nCustomer phone number: +${cleanPhone}`
+                            }),
+                            signal: AbortSignal.timeout(20000)
+                        });
+                        if (response.ok) break;
+                        throw new Error(`Server returned status ${response.status}`);
+                    } catch (fetchErr) {
+                        retries--;
+                        if (retries === 0) throw fetchErr;
+                        console.warn(`⚠️ Connection attempt to Azure failed. Retrying... (${retries} attempts left). Error: ${fetchErr.message}`);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
 
-                if (response.ok) {
+                if (response && response.ok) {
                     const workflowResult = await response.json();
                     await sock.sendPresenceUpdate('paused', jid);
                     await sock.sendMessage(jid, { 
