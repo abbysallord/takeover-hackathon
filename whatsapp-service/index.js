@@ -194,7 +194,8 @@ async function connectToWhatsApp() {
                             signal: AbortSignal.timeout(20000)
                         });
                         if (response.ok) break;
-                        throw new Error(`Server returned status ${response.status}`);
+                        const errBody = await response.text().catch(() => "");
+                        throw new Error(`Server returned status ${response.status}: ${errBody}`);
                     } catch (fetchErr) {
                         retries--;
                         if (retries === 0) throw fetchErr;
