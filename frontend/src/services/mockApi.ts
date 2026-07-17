@@ -557,5 +557,62 @@ export const mockApi = {
       console.error("Error fetching credentials defaults:", e);
       return { client_id: '', client_secret: '' };
     }
+  },
+
+  getInventory: async (): Promise<any[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/inventory`);
+      if (!res.ok) throw new Error("Inventory fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error fetching inventory:", e);
+      return [];
+    }
+  },
+
+  receiveInventory: async (data: { sku: string, quantity_received: number, note?: string, passcode: string }): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/inventory/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Inventory receipt failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error receiving inventory:", e);
+      return null;
+    }
+  },
+
+  proposeKnowledgeEdit: async (category: string, filename: string, instruction: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/propose-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, filename, instruction })
+      });
+      if (!res.ok) throw new Error("Propose edit failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error proposing knowledge edit:", e);
+      return null;
+    }
+  },
+
+  applyKnowledgeEdit: async (category: string, filename: string, proposed_content: string, instruction: string, passcode: string): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/knowledge/apply-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, filename, proposed_content, instruction, passcode })
+      });
+      if (!res.ok) throw new Error("Apply edit failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error applying knowledge edit:", e);
+      return null;
+    }
   }
 };
+
