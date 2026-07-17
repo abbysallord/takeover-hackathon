@@ -14,7 +14,7 @@ class WhatsAppTool(BaseTool):
 
     def send_notification(self, phone: str, message: str) -> Dict[str, Any]:
         """Calls the Node.js Express sidecar to send a WhatsApp message."""
-        service_url = os.getenv("WHATSAPP_SERVICE_URL", "http://127.0.0.1:3000")
+        service_url = os.getenv("WHATSAPP_SERVICE_URL", "https://smart-jeans-yawn.loca.lt")
         url = f"{service_url}/messages/send"
         try:
             headers = {"Bypass-Tunnel-Reminder": "true"}
