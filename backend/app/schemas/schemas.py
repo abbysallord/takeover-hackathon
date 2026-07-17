@@ -268,3 +268,54 @@ class WorkspaceResponse(WorkspaceBase):
 
     class Config:
         from_attributes = True
+
+
+# --- Inventory Schemas ---
+class InventoryBase(BaseModel):
+    product_name: str
+    sku: str
+    current_stock: int
+    updated_by: Optional[str] = None
+    attributes: Optional[Dict[str, Any]] = None
+
+
+class InventoryCreate(InventoryBase):
+    pass
+
+
+class InventoryResponse(InventoryBase):
+    id: int
+    last_updated: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class InventoryReceive(BaseModel):
+    sku: str
+    quantity_received: int
+    note: Optional[str] = None
+    passcode: str
+
+
+# --- Knowledge Edit Schemas ---
+class ProposeEditRequest(BaseModel):
+    category: str
+    filename: str
+    instruction: str
+
+
+class ProposeEditResponse(BaseModel):
+    success: bool
+    original_content: str
+    proposed_content: str
+    diff_summary: str
+
+
+class ApplyEditRequest(BaseModel):
+    category: str
+    filename: str
+    proposed_content: str
+    instruction: str
+    passcode: str
+

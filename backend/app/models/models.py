@@ -158,3 +158,29 @@ class Workspace(Base):
     passcode_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
+
+class Inventory(Base):
+    __tablename__ = "inventory"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    product_name: Mapped[str] = mapped_column(String(100), index=True)
+    sku: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    current_stock: Mapped[int] = mapped_column(default=0)
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    attributes: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+
+
+class KnowledgeEditLog(Base):
+    __tablename__ = "knowledge_edit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(100))
+    editor_identity: Mapped[str] = mapped_column(String(100))
+    instruction: Mapped[str] = mapped_column(Text)
+    diff_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="APPLIED")
+    applied_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+
