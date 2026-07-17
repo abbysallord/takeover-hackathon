@@ -193,6 +193,7 @@ def get_db(request: Request = None) -> Generator:
                     db.close()
             else:
                 try:
+                    migrate_schema_columns(db, None)
                     yield db
                 finally:
                     db.close()
