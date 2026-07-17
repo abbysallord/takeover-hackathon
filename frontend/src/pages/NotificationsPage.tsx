@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, AlertCircle, RefreshCw, Eye, ExternalLink } from 'lucide-react';
+import { Bell, CheckCircle2, AlertCircle, RefreshCw, Eye, ExternalLink, Sparkles } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
 import { Dialog } from '../components/ui/Dialog';
@@ -100,6 +100,7 @@ export function NotificationsPage() {
                                   notifTitle.toLowerCase().includes('error') || 
                                   notifTitle.toLowerCase().includes('pending') || 
                                   notifTitle.toLowerCase().includes('request');
+                const isKnowledge = notif.type === 'KNOWLEDGE_UPDATED';
                 return (
                   <div 
                     key={notif.id} 
@@ -107,9 +108,13 @@ export function NotificationsPage() {
                     className={`p-5 flex items-start gap-4 hover:bg-white/5 transition-colors cursor-pointer ${notif.read ? 'opacity-50' : 'bg-white/[0.01]'}`}
                   >
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                      isWarning ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' : 'bg-[#28c840]/10 text-[#28c840]'
+                      isKnowledge 
+                        ? 'bg-[#3b82f6]/10 text-[#3b82f6]' 
+                        : isWarning 
+                          ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' 
+                          : 'bg-[#28c840]/10 text-[#28c840]'
                     }`}>
-                      {isWarning ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                      {isKnowledge ? <Sparkles className="w-5 h-5" /> : isWarning ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 pt-0.5">
                       <div className="flex justify-between items-start mb-1">
