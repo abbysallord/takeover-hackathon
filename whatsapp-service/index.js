@@ -158,7 +158,9 @@ async function connectToWhatsApp() {
                     "You are a text classifier. Respond only with the classification keyword: SALES_LEAD or CASUAL_CHAT."
                 );
 
-                const isSalesLead = /sales_lead/i.test(rawClassification);
+                console.log(`🤖 AI Raw Classification: "${rawClassification}"`);
+
+                const isSalesLead = /sales_lead|sales|lead/i.test(rawClassification);
                 if (!isSalesLead) {
                     await sock.sendPresenceUpdate('paused', jid);
                     console.log(`⏭️ Ignored casual chat from ${jid}: "${text}"`);
