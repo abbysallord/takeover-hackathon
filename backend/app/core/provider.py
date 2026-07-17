@@ -322,11 +322,19 @@ class GroqProvider(LLMProvider):
                     "confidence": 0.99,
                 }
         elif not has_whatsapp:
+            phone_num = "+1234567890"
+            if "@whatsapp.flow.hackarena.dev" in sender_email:
+                phone_num = sender_email.split("@")[0]
+            else:
+                phone_match = re.search(r"(\+\d{10,15}|\b\d{10,12}\b)", email_context)
+                if phone_match:
+                    phone_num = phone_match.group(1).replace(" ", "")
+            
             decision = {
                 "thought": "Sending WhatsApp notification quote alert directly to customer mobile phone.",
                 "tool": "whatsapp_tool",
                 "args": {
-                    "phone": "+1234567890",
+                    "phone": phone_num,
                     "message": f"Hi, your quote QT-AUTO for {qty} units of {product} has been generated and emailed to you!"
                 },
                 "confidence": 0.99,
