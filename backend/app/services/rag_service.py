@@ -25,6 +25,7 @@ class RAGService:
         default_root = Path("/tmp/knowledge") if os.name != "nt" else Path(__file__).resolve().parent.parent.parent / "knowledge"
         self.base_knowledge_root = Path(knowledge_root or default_root)
         self._model: Optional[Any] = None
+        self._model_loading_failed = False
         self.documents_by_session: Dict[Optional[str], List[Dict[str, Any]]] = {}
         self.initialized_sessions: Dict[Optional[str], bool] = {}
 
@@ -65,11 +66,17 @@ class RAGService:
     @property
     def model(self) -> Any:
         """Lazily initialize the sentence-transformer embedding model to save startup latency."""
-        if self._model is None and HAS_SENTENCE_TRANSFORMERS:
+        if self._model is None and HAS_SENTENCE_TRANSFORMERS and not self._model_loading_failed:
             try:
-                self._model = SentenceTransformer("all-MiniLM-L6-v2")
+                # Force local files only to avoid online verification attempts on network-restricted hosts
+                self._model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
             except Exception as e:
-                print(f"⚠️ Error loading SentenceTransformer: {e}. Falling back to keyword search.")
+                print(f"⚠️ Error loading SentenceTransformer locally: {e}. Trying online load...")
+                try:
+                    self._model = SentenceTransformer("all-MiniLM-L6-v2")
+                except Exception as ex:
+                    print(f"⚠️ Failed loading SentenceTransformer online: {ex}. Bypassing vector model for session.")
+                    self._model_loading_failed = True
         return self._model
 
     def initialize_store(self) -> None:
