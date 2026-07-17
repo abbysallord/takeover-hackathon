@@ -20,8 +20,7 @@ async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     sock = makeWASocket({
         auth: state,
-        logger: pino({ level: 'silent' }),
-        printQRInTerminal: true // Prints QR in backend console automatically
+        logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
