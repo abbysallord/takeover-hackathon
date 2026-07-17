@@ -158,6 +158,8 @@ class RAGService:
         if not self.documents:
             return []
 
+        results = []
+
         # Case 1: Embeddings are available
         if self.model and HAS_NUMPY and any(doc["embedding"] is not None for doc in self.documents):
             try:
@@ -174,7 +176,7 @@ class RAGService:
                 
                 # Sort by similarity score descending
                 matches.sort(key=lambda x: x[1], reverse=True)
-                return [
+                results = [
                     {**item[0], "score": item[1]}
                     for item in matches[:top_k]
                 ]
@@ -182,20 +184,49 @@ class RAGService:
                 print(f"⚠️ Vector search failed: {e}. Falling back to keyword fallback.")
 
         # Case 2: Fallback to keyword-based relevance matching
-        query_words = set(query.lower().split())
-        matches = []
-        
-        for doc in self.documents:
-            doc_words = doc["text"].lower()
-            # Simple match score (count overlapping keywords)
-            score = sum(1 for word in query_words if word in doc_words)
-            if score > 0:
-                # Normalize by query length
-                norm_score = score / len(query_words)
-                matches.append(({**doc, "score": norm_score}, norm_score))
-                
-        matches.sort(key=lambda x: x[1], reverse=True)
-        return [item[0] for item in matches[:top_k]]
+        if not results:
+            query_words = set(query.lower().split())
+            matches = []
+            
+            for doc in self.documents:
+                doc_words = doc["text"].lower()
+                # Simple match score (count overlapping keywords)
+                score = sum(1 for word in query_words if word in doc_words)
+                if score > 0:
+                    # Normalize by query length
+                    norm_score = score / len(query_words)
+                    matches.append(({**doc, "score": norm_score}, norm_score))
+                    
+            matches.sort(key=lambda x: x[1], reverse=True)
+            results = [item[0] for item in matches[:top_k]]
+
+        # Live Dynamic Database Override to prevent context divergence
+        if results:
+            from app.models.database import SessionLocal
+            from app.models.models import Inventory
+            db = SessionLocal()
+            try:
+                db_items = db.query(Inventory).all()
+                if db_items:
+                    db_map = {item.sku.lower(): item for item in db_items}
+                    for res in results:
+                        text_lower = res["text"].lower()
+                        overrides = []
+                        for sku, item in db_map.items():
+                            prod_name_lower = item.product_name.lower().strip()
+                            if sku in text_lower or prod_name_lower in text_lower:
+                                overrides.append(
+                                    f"[LIVE SYSTEM OVERRIDE: SKU '{item.sku}' ({item.product_name}) - stock: {item.current_stock} available units]"
+                                )
+                        if overrides:
+                            res["text"] += "\n\n" + "\n".join(overrides)
+            except Exception as ex:
+                print(f"⚠️ RAG dynamic override check failed: {ex}")
+            finally:
+                db.close()
+
+        return results
+
 
     def get_formatted_context(self, query: str, top_k: int = 3) -> str:
         """Retrieves and formats top matches as a single string block for LLM prompts."""

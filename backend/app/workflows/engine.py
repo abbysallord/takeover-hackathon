@@ -284,6 +284,41 @@ class WorkflowEngine:
                 items=items_list
             )
             db.add(quote)
+            
+            # Deduct stock from Inventory database table
+            from app.models.models import Inventory, Notification
+            prod_norm = product_name.lower().strip().replace("-", " ")
+            item = None
+            if "widget a" in prod_norm:
+                item = db.query(Inventory).filter(Inventory.sku == "WD-A-01").first()
+            elif "widget b" in prod_norm:
+                item = db.query(Inventory).filter(Inventory.sku == "WD-B-02").first()
+            elif "widget c" in prod_norm:
+                item = db.query(Inventory).filter(Inventory.sku == "WD-C-03").first()
+            elif "server rack" in prod_norm:
+                item = db.query(Inventory).filter(Inventory.sku == "SR-RK-99").first()
+            
+            if not item:
+                all_items = db.query(Inventory).all()
+                for db_item in all_items:
+                    db_name_norm = db_item.product_name.lower().strip().replace("-", " ")
+                    if db_name_norm in prod_norm or prod_norm in db_name_norm:
+                        item = db_item
+                        break
+            
+            if item:
+                old_stock = item.current_stock
+                item.current_stock = max(0, item.current_stock - quantity)
+                item.updated_by = "WORKFLOW_AGENT"
+                
+                # Create stock deduction notification
+                notif = Notification(
+                    type="SYSTEM_ERROR",  # Use SYSTEM_ERROR proxy to support existing models/queries
+                    message=f"📊 Stock deducted: {product_name} ({item.sku}) decreased from {old_stock} to {item.current_stock} (Deducted -{quantity} units) due to quotation {quote_number}.",
+                    read=False
+                )
+                db.add(notif)
+            
             db.commit()
             db.refresh(quote)
             
@@ -293,6 +328,7 @@ class WorkflowEngine:
                 "total_amount": total_amount,
                 "items": items_list
             }
+
             
         elif tool_name == "request_approval_tool":
             quote_number = tool_args.get("quotation_number", "")
