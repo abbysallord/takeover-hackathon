@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle, AlertCircle, Eye } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { Dialog } from '../components/ui/Dialog';
 import { useToast } from '../components/ui/ToastContext';
+import { Badge } from '../components/ui/Badge';
 import { mockApi } from '../services/mockApi';
 
 export function ApprovalsPage() {
@@ -134,12 +135,26 @@ export function ApprovalsPage() {
                     onClick={() => setExpandedApprovalId(expandedApprovalId === item.id ? null : item.id)}
                     className="flex items-center gap-4 cursor-pointer select-none group flex-1"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.status === 'pending' ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' : 'bg-[#28c840]/10 text-[#28c840]'}`}>
-                      {item.status === 'pending' ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                      item.status === 'pending' 
+                        ? 'bg-[#ff9f0a]/10 text-[#ff9f0a]' 
+                        : item.status === 'rejected'
+                          ? 'bg-[#ff5f57]/10 text-[#ff5f57]'
+                          : 'bg-[#28c840]/10 text-[#28c840]'
+                    }`}>
+                      {item.status === 'pending' 
+                        ? <AlertCircle className="w-5 h-5" /> 
+                        : item.status === 'rejected'
+                          ? <XCircle className="w-5 h-5" />
+                          : <CheckCircle2 className="w-5 h-5" />
+                      }
                     </div>
                     <div>
                       <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors flex items-center gap-2">
                         <span>{item.type} for {item.client}</span>
+                        {item.status === 'approved' && <Badge variant="success">Approved</Badge>}
+                        {item.status === 'rejected' && <Badge variant="error">Rejected</Badge>}
+                        {item.status === 'pending' && <Badge variant="warning">Pending</Badge>}
                         <span className="text-[10px] text-white/35 font-normal tracking-wide">(Click to {expandedApprovalId === item.id ? 'collapse' : 'view details'})</span>
                       </div>
                       <div className="text-xs text-white/45 mt-1">

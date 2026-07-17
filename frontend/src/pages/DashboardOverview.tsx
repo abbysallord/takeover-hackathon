@@ -14,11 +14,24 @@ export function DashboardOverview() {
     mockApi.getWorkspace().then(workspace => {
       if (workspace) setCompanyName(workspace.company_name);
     });
-    // Fetch data from our API service
+    
+    const fetchData = () => {
+      Promise.all([
+        mockApi.getStats().then(setStats),
+        mockApi.getWorkflows().then(setWorkflows)
+      ]).catch(e => console.error("Error refreshing dashboard:", e));
+    };
+
+    fetchData();
+    setIsLoading(true);
+    // Initial fetch triggers loading state, subsequent polls update in background
     Promise.all([
       mockApi.getStats().then(setStats),
       mockApi.getWorkflows().then(setWorkflows)
     ]).then(() => setIsLoading(false));
+
+    const interval = setInterval(fetchData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
