@@ -2,6 +2,56 @@ const dns = require('dns');
 if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from potential project locations
+const envPaths = [
+    path.join(__dirname, '.env'),
+    path.join(__dirname, '../backend/.env'),
+    path.join(__dirname, '../../whatsapp-bot/.env'),
+    path.join(__dirname, '../../../whatsapp-bot/.env')
+];
+for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+        console.log(`Loaded environment variables from: ${envPath}`);
+        break;
+    }
+}
+
+// Global fetch is available in Node 18+
+async function askAI(userMessage, systemInstruction) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+        console.warn("GROQ_API_KEY is not configured.");
+        return "CASUAL_CHAT";
+    }
+    try {
+        const response = await fetch("https://api.groq.com/openapi/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: userMessage }
+                ],
+                temperature: 0.1
+            })
+        });
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "";
+    } catch (e) {
+        console.error("Groq classification request failed:", e);
+        return "CASUAL_CHAT";
+    }
+}
+
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const express = require('express');
@@ -46,6 +96,73 @@ async function connectToWhatsApp() {
             console.log('Opened WhatsApp connection successfully!');
             isConnected = true;
             qrCodeData = null;
+        }
+    });
+
+    // Listen for incoming WhatsApp messages and trigger sales workflow
+    sock.ev.on('messages.upsert', async (chatUpdate) => {
+        try {
+            if (chatUpdate.type !== 'notify') return;
+            for (const msg of chatUpdate.messages) {
+                const jid = msg.key.remoteJid;
+                if (msg.key.fromMe || jid === 'status@broadcast') continue;
+
+                // Extract plain text message content
+                const text = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
+                if (!text) continue;
+
+                // Restrict group chats to avoid loop spamming
+                const isGroup = jid.endsWith('@g.us');
+                if (isGroup) continue;
+
+                console.log(`💬 Incoming message from ${jid}: "${text}"`);
+
+                // 1.5-second typing presence gap to prevent Groq TPD rate limits
+                await sock.sendPresenceUpdate('composing', jid);
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                const rawClassification = await askAI(
+                    `Analyze this WhatsApp message: "${text}". Classify it as SALES_LEAD or CASUAL_CHAT.`,
+                    "You are a text classifier. Respond only with the classification keyword: SALES_LEAD or CASUAL_CHAT."
+                );
+
+                const isSalesLead = /sales_lead/i.test(rawClassification);
+                if (!isSalesLead) {
+                    await sock.sendPresenceUpdate('paused', jid);
+                    console.log(`⏭️ Ignored casual chat from ${jid}: "${text}"`);
+                    continue;
+                }
+
+                // Process sales opportunity lead and route to Flow backend
+                console.log(`🚀 Qualified sales lead from ${jid}: "${text}"`);
+                
+                const workspaceApiUrl = 'https://flow-backend-api.azurewebsites.net';
+                let cleanPhone = jid.replace(/\D/g, '');
+                const mockEmail = `${cleanPhone}@whatsapp.flow.hackarena.dev`;
+
+                const response = await fetch(`${workspaceApiUrl}/workflows/simulate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender: mockEmail,
+                        recipient: 'sales@flow.hackarena.dev',
+                        subject: 'WhatsApp Order/Query Placement',
+                        body: `WhatsApp Message content: "${text}"\nCustomer phone number: +${cleanPhone}`
+                    })
+                });
+
+                if (response.ok) {
+                    const workflowResult = await response.json();
+                    await sock.sendPresenceUpdate('paused', jid);
+                    await sock.sendMessage(jid, { 
+                        text: `👋 Hi, I've received your request! Our sales operations agent has initialized Workflow *#${workflowResult.id}* to check our pricing catalog and inventory.\n\nWe will get back to you with the official quote shortly!` 
+                    }, { quoted: msg });
+                } else {
+                    await sock.sendPresenceUpdate('paused', jid);
+                }
+            }
+        } catch (error) {
+            console.error('Error in messages.upsert handler:', error);
         }
     });
 }
