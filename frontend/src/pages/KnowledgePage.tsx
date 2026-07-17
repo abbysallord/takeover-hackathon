@@ -14,6 +14,7 @@ export function KnowledgePage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [dragActive, setDragActive] = useState(false);
 
   // Dialog State
@@ -103,19 +104,27 @@ export function KnowledgePage() {
     if (!selectedFile) return;
     try {
       setIsUploading(true);
+      setUploadStatus('uploading');
       setIsConfirmOpen(false);
       const res = await mockApi.uploadKnowledgeFile(category, selectedFile);
       if (res && res.success) {
-        toast(`Successfully uploaded & RAG indexed ${selectedFile.name}!`, 'success');
+        setUploadStatus('success');
         loadDocuments();
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        toast(`Successfully uploaded & RAG indexed ${selectedFile.name}!`, 'success');
       } else {
+        setUploadStatus('error');
+        await new Promise(resolve => setTimeout(resolve, 1500));
         toast('Upload failed. Try again.', 'error');
       }
     } catch (e) {
       console.error(e);
+      setUploadStatus('error');
+      await new Promise(resolve => setTimeout(resolve, 1500));
       toast('Internal upload server error.', 'error');
     } finally {
       setIsUploading(false);
+      setUploadStatus('idle');
       setSelectedFile(null);
     }
   };
@@ -128,9 +137,25 @@ export function KnowledgePage() {
     <PageTransition>
       {isUploading && (
         <div className="fixed inset-0 bg-[#0c0c0e]/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] animate-fade-in">
-          <div className="w-12 h-12 rounded-full border-2 border-t-transparent border-[#3b82f6] animate-spin mb-4" />
-          <h3 className="text-white font-medium text-sm">Parsing stock documents & updating RAG...</h3>
-          <p className="text-xs text-white/40 mt-1">Analyzing SKU patterns and auto-syncing inventory</p>
+          {uploadStatus === 'success' ? (
+            <>
+              <CheckCircle2 className="w-12 h-12 text-[#52b788] mb-4 animate-bounce" />
+              <h3 className="text-white font-medium text-sm">File added successfully!</h3>
+              <p className="text-xs text-white/40 mt-1">RAG database and inventory sync complete</p>
+            </>
+          ) : uploadStatus === 'error' ? (
+            <>
+              <ShieldAlert className="w-12 h-12 text-rose-500 mb-4 animate-pulse" />
+              <h3 className="text-white font-medium text-sm">Upload failed</h3>
+              <p className="text-xs text-white/40 mt-1">Please verify the file content and format</p>
+            </>
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-full border-2 border-t-transparent border-[#3b82f6] animate-spin mb-4" />
+              <h3 className="text-white font-medium text-sm">Parsing stock documents & updating RAG...</h3>
+              <p className="text-xs text-white/40 mt-1">Analyzing SKU patterns and auto-syncing inventory</p>
+            </>
+          )}
         </div>
       )}
       <div className="animate-fade-up">

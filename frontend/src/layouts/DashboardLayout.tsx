@@ -217,20 +217,33 @@ export function DashboardLayout() {
               {!isSidebarCollapsed && <span className="text-xs font-medium">Logout</span>}
             </button>
 
-            <button 
-              onClick={toggleSidebar}
-              title={isSidebarCollapsed ? "Expand Menu" : "Collapse Menu"}
-              className={`hidden md:flex items-center rounded-md hover:bg-white/5 text-white/40 hover:text-white/80 transition-all duration-300 mt-auto py-2.5 ${
-                isSidebarCollapsed ? 'justify-center p-2 w-10' : 'px-3 py-2 w-full gap-3 border-t border-white/5 mt-4'
-              }`}
-            >
-              {isSidebarCollapsed ? <ChevronRight className="w-4 h-4 shrink-0" /> : (
-                <>
-                  <ChevronLeft className="w-4 h-4 shrink-0" />
-                  <span className="text-xs font-medium">Collapse Menu</span>
-                </>
+            <div className="mt-auto flex flex-col gap-1">
+              {!isSidebarCollapsed ? (
+                <div className="px-3 py-2 text-[10px] text-white/30 border-t border-white/5 flex justify-between items-center">
+                  <span>System Version</span>
+                  <span className="bg-white/10 px-1.5 py-0.5 rounded text-white/50 font-mono">v1.2.0</span>
+                </div>
+              ) : (
+                <div className="text-[9px] text-white/20 text-center py-2 border-t border-white/5 font-mono">
+                  v1.2.0
+                </div>
               )}
-            </button>
+
+              <button 
+                onClick={toggleSidebar}
+                title={isSidebarCollapsed ? "Expand Menu" : "Collapse Menu"}
+                className={`hidden md:flex items-center rounded-md hover:bg-white/5 text-white/40 hover:text-white/80 transition-all duration-300 py-2.5 ${
+                  isSidebarCollapsed ? 'justify-center p-2 w-10' : 'px-3 py-2 w-full gap-3 border-t border-white/5'
+                }`}
+              >
+                {isSidebarCollapsed ? <ChevronRight className="w-4 h-4 shrink-0" /> : (
+                  <>
+                    <ChevronLeft className="w-4 h-4 shrink-0" />
+                    <span className="text-xs font-medium">Collapse Menu</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -13,32 +13,7 @@ router = APIRouter(tags=["Inventory"])
 @router.get("/inventory", response_model=List[InventoryResponse])
 def get_inventory(db: Session = Depends(get_db)) -> List[InventoryResponse]:
     """Retrieves all inventory items for this tenant workspace."""
-    items = db.query(Inventory).all()
-    if not items:
-        # Check workspace data (like catalog_data/pricing_data) to auto-seed if possible
-        workspace = db.query(Workspace).first()
-        if workspace:
-            # We seed standard items WD-A-01, WD-B-02, WD-C-03, SR-RK-99
-            # with default stock values from catalog if found, else fallback standard defaults
-            default_items = [
-                {"product_name": "Widget A", "sku": "WD-A-01", "current_stock": 1500},
-                {"product_name": "Widget B", "sku": "WD-B-02", "current_stock": 200},
-                {"product_name": "Widget C", "sku": "WD-C-03", "current_stock": 0},
-                {"product_name": "Server Rack", "sku": "SR-RK-99", "current_stock": 15},
-            ]
-            for item in default_items:
-                # Basic check to avoid duplicates
-                existing = db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
-                if not existing:
-                    db.add(Inventory(
-                        product_name=item["product_name"],
-                        sku=item["sku"],
-                        current_stock=item["current_stock"],
-                        updated_by="SYSTEM_SEED"
-                    ))
-            db.commit()
-            items = db.query(Inventory).all()
-    return items
+    return db.query(Inventory).all()
 
 
 @router.post("/inventory/receive", response_model=InventoryResponse)

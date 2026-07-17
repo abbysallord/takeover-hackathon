@@ -18,26 +18,7 @@ class InventoryTool(BaseTool):
         from app.models.models import Workspace, Inventory
         import re
 
-        # Auto-seed if database is empty
-        items = db.query(Inventory).all()
-        if not items:
-            default_items = [
-                {"product_name": "Widget A", "sku": "WD-A-01", "current_stock": 1500},
-                {"product_name": "Widget B", "sku": "WD-B-02", "current_stock": 200},
-                {"product_name": "Widget C", "sku": "WD-C-03", "current_stock": 0},
-                {"product_name": "Server Rack", "sku": "SR-RK-99", "current_stock": 15},
-            ]
-            for it in default_items:
-                existing = db.query(Inventory).filter(Inventory.sku == it["sku"]).first()
-                if not existing:
-                    db.add(Inventory(
-                        product_name=it["product_name"],
-                        sku=it["sku"],
-                        current_stock=it["current_stock"],
-                        updated_by="SYSTEM_SEED"
-                    ))
-            db.commit()
-
+        # Auto-seed disabled to rely purely on knowledge base uploads
         workspace = db.query(Workspace).first()
         matched_stock = None
 

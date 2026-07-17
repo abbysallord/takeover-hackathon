@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Shield, Key, Bell, CreditCard, RotateCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { User, Shield, Key, Bell, CreditCard, RotateCw, AlertTriangle, CheckCircle2, Mail, MessageSquare } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { useToast } from '../components/ui/ToastContext';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -19,6 +19,11 @@ export function SettingsPage() {
   const [waConnected, setWaConnected] = useState(false);
   const [waQr, setWaQr] = useState<string | null>(null);
   const [waPhone, setWaPhone] = useState<string | null>(null);
+
+  // Integrations States
+  const [gmailAutopilot, setGmailAutopilot] = useState(() => localStorage.getItem('gmail_autopilot') !== 'false');
+  const [waSendQuote, setWaSendQuote] = useState(() => localStorage.getItem('wa_send_quote') !== 'false');
+  const [waSendFollowup, setWaSendFollowup] = useState(() => localStorage.getItem('wa_send_followup') !== 'false');
 
   const checkWhatsAppStatus = async () => {
     try {
@@ -230,13 +235,6 @@ export function SettingsPage() {
                 </button>
               );
             })}
-            <hr className="border-white/10 my-4" />
-            <button 
-              onClick={handleResetWorkspace}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-[#ff5f57] hover:bg-[#ff5f57]/10 transition-colors"
-            >
-              <AlertTriangle className="w-4 h-4" /> Reset Workspace
-            </button>
           </div>
           
           {/* Tab Contents */}
@@ -327,7 +325,7 @@ export function SettingsPage() {
                         </span>
                       </div>
                       
-                      <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/5">
+                      <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/5 mb-8">
                         <button 
                           onClick={handleSave}
                           disabled={isSaving}
@@ -336,92 +334,162 @@ export function SettingsPage() {
                           {isSaving ? "Saving..." : "Save Workspace"}
                         </button>
                       </div>
+
+                      {/* Danger Zone */}
+                      <div className="border border-[#ff5f57]/20 bg-[#ff5f57]/[0.02] p-6 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-2 text-[#ff5f57]">
+                          <AlertTriangle className="w-5 h-5" />
+                          <h3 className="text-sm font-semibold">Danger Zone</h3>
+                        </div>
+                        <p className="text-[10px] text-white/50 mb-4 leading-relaxed">
+                          Resetting your workspace will permanently delete your catalog files, active sales transaction data, quotations, CRM leads, and clear Google/WhatsApp credentials. This action is irreversible.
+                        </p>
+                        <button 
+                          onClick={handleResetWorkspace}
+                          className="bg-[#ff5f57] hover:bg-[#e04e47] text-white px-5 py-2.5 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          Reset Workspace Data
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'Integrations' && (
-                  <div>
-                    <h2 className="text-lg font-medium text-white mb-6">Integrations & Credentials</h2>
-                    
-                    <div className="flex flex-col gap-6 text-xs text-white/80">
-                      {/* Gmail Inbox Connection status */}
-                      <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded bg-white/5 flex items-center justify-center ${workspace?.gmail_connected ? 'text-[#28c840]' : 'text-white/30'}`}>
-                            <CheckCircle2 className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <div className="text-xs text-white font-semibold">Gmail Inbox Synchronization</div>
-                            <div className="text-[10px] text-white/40 mt-0.5">
-                              {workspace?.gmail_connected 
-                                ? `Syncing sales emails at ${workspace.business_email}` 
-                                : "Awaiting Google Authentication"}
+                  <div className="flex flex-col gap-6 text-left animate-fade-up">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <h2 className="text-lg font-medium text-white mb-1">Integrations & Connected Apps</h2>
+                        <p className="text-xs text-white/40">Connect and manage your sales communication channels and automation services.</p>
+                      </div>
+                      <Badge variant="neutral" className="border-white/10 text-white/50 text-[9px] font-mono">Platform v1.2.0</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                      {/* Gmail Connection Card */}
+                      <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col justify-between gap-4 h-full">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold text-white">Gmail Sync</div>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${workspace?.gmail_connected ? 'bg-[#28c840]/10 text-[#28c840]' : 'bg-white/10 text-white/40'}`}>
+                                {workspace?.gmail_connected ? 'Connected' : 'Offline'}
+                              </span>
                             </div>
                           </div>
+                          <p className="text-[10px] text-white/40 leading-relaxed">
+                            Sync inbound customer emails from your business inbox and run the autonomous sales workflow.
+                          </p>
+                          {workspace?.gmail_connected && (
+                            <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-white/55">Enable Autopilot Replies</span>
+                                <button
+                                  onClick={() => {
+                                    const next = !gmailAutopilot;
+                                    setGmailAutopilot(next);
+                                    localStorage.setItem('gmail_autopilot', String(next));
+                                    toast(next ? 'Gmail autopilot enabled' : 'Gmail autopilot disabled', 'success');
+                                  }}
+                                  className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${gmailAutopilot ? 'bg-[#3b82f6]' : 'bg-white/10'}`}
+                                >
+                                  <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${gmailAutopilot ? 'translate-x-3' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                              <div className="flex justify-between items-center text-[9px] text-white/30">
+                                <span>Background Polling</span>
+                                <span>Every 20s</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
-                        {workspace?.gmail_connected ? (
-                          <button 
-                            onClick={handleDisconnectGmail}
-                            className="bg-white/5 hover:bg-[#ff5f57]/10 text-white/80 hover:text-[#ff5f57] border border-white/10 px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
-                          >
-                            Disconnect Inbox
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={handleConnectGmail}
-                            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-5 py-2 rounded-lg text-xs font-semibold transition-colors shadow-md shadow-blue-500/10"
-                          >
-                            Connect Gmail Inbox
-                          </button>
-                        )}
+                        <div className="pt-2">
+                          {workspace?.gmail_connected ? (
+                            <button 
+                              onClick={handleDisconnectGmail}
+                              className="w-full bg-white/5 hover:bg-[#ff5f57]/10 text-white/80 hover:text-[#ff5f57] border border-white/10 py-2 rounded-lg text-xs font-semibold transition-colors"
+                            >
+                              Disconnect Inbox
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={handleConnectGmail}
+                              className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-2 rounded-lg text-xs font-semibold transition-colors shadow-md shadow-blue-500/10"
+                            >
+                              Connect Gmail Inbox
+                            </button>
+                          )}
+                        </div>
                       </Card>
 
-                      {/* WhatsApp Baileys Integration status */}
-                      <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col gap-4">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      {/* WhatsApp Gateway Card */}
+                      <Card className="p-5 border-white/10 bg-white/[0.01] flex flex-col justify-between gap-4 h-full">
+                        <div className="flex flex-col gap-3">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded bg-white/5 flex items-center justify-center ${waConnected ? 'text-[#28c840]' : 'text-white/30'}`}>
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <div className="w-8 h-8 rounded bg-green-500/10 text-green-400 flex items-center justify-center">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.967C16.58 1.972 14.106.945 11.99.945c-5.442 0-9.866 4.372-9.87 9.802 0 1.92.512 3.792 1.48 5.467l-.985 3.6 3.69-.97-.248.146zm11.967-7.661c-.32-.16-1.89-.93-2.185-1.04-.294-.11-.51-.16-.723.16-.21.32-.82.104-1.004.32-.185.22-.37.24-.69.08-.314-.16-1.33-.49-2.53-1.56-.94-.84-1.57-1.87-1.75-2.19-.19-.32-.02-.49.14-.65.15-.14.32-.37.49-.56.17-.18.22-.31.34-.52.11-.21.05-.4-.03-.56-.08-.16-.72-1.74-.99-2.39-.26-.64-.53-.55-.72-.56-.19-.01-.41-.01-.63-.01-.22 0-.58.08-.88.4-.3.32-1.15 1.12-1.15 2.73 0 1.61 1.17 3.16 1.33 3.38.16.22 2.3 3.52 5.58 4.94.78.34 1.39.54 1.86.69.78.25 1.49.21 2.06.13.63-.09 1.89-.77 2.15-1.48.27-.71.27-1.32.19-1.45-.08-.12-.3-.21-.62-.37z"/>
                               </svg>
                             </div>
-                            <div className="text-left">
-                              <div className="text-xs text-white font-semibold">WhatsApp Automation Gateway</div>
-                              <div className="text-[10px] text-white/40 mt-0.5">
-                                {waConnected 
-                                  ? `Connected as ${waPhone || 'Active Client'}` 
-                                  : "Local WhatsApp sidecar service must be running on port 3000"}
-                              </div>
+                            <div>
+                              <div className="text-xs font-semibold text-white">WhatsApp Gateway</div>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${waConnected ? 'bg-[#28c840]/10 text-[#28c840]' : 'bg-white/10 text-white/40'}`}>
+                                {waConnected ? 'Connected' : 'Disconnected'}
+                              </span>
                             </div>
                           </div>
-                          
+                          <p className="text-[10px] text-white/40 leading-relaxed">
+                            Send quote PDFs and follow-up notifications directly to customer mobile phone numbers.
+                          </p>
                           {waConnected && (
-                            <span className="text-[10px] text-[#28c840] font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4" /> Connected
+                            <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-white/55">Send PDF Quotes</span>
+                                <button
+                                  onClick={() => {
+                                    const next = !waSendQuote;
+                                    setWaSendQuote(next);
+                                    localStorage.setItem('wa_send_quote', String(next));
+                                  }}
+                                  className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${waSendQuote ? 'bg-[#3b82f6]' : 'bg-white/10'}`}
+                                >
+                                  <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${waSendQuote ? 'translate-x-3' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-white/55">Send Callback Alerts</span>
+                                <button
+                                  onClick={() => {
+                                    const next = !waSendFollowup;
+                                    setWaSendFollowup(next);
+                                    localStorage.setItem('wa_send_followup', String(next));
+                                  }}
+                                  className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${waSendFollowup ? 'bg-[#3b82f6]' : 'bg-white/10'}`}
+                                >
+                                  <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ${waSendFollowup ? 'translate-x-3' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="pt-2">
+                          {!waConnected && waQr && (
+                            <div className="flex flex-col items-center gap-2 pb-2 border-t border-white/5 pt-3 animate-fade-down duration-200">
+                              <div className="bg-white p-2 rounded-xl w-36 h-36 flex items-center justify-center">
+                                <img src={waQr} alt="WhatsApp QR" className="w-full h-full" />
+                              </div>
+                              <span className="text-[9px] text-white/40 text-center">Scan with WhatsApp Link Devices</span>
+                            </div>
+                          )}
+                          {!waConnected && !waQr && (
+                            <span className="text-[9px] text-white/30 italic block text-center py-2">
+                              Awaiting connection to local WhatsApp service...
                             </span>
                           )}
                         </div>
-
-                        {!waConnected && (
-                          <div className="border-t border-white/5 pt-4 mt-2">
-                            {waQr ? (
-                              <div className="flex flex-col items-center gap-3 py-4">
-                                <div className="bg-white p-3 rounded-2xl w-48 h-48 flex items-center justify-center border border-white/10 shadow-lg">
-                                  <img src={waQr} alt="WhatsApp QR Code" className="w-full h-full" />
-                                </div>
-                                <span className="text-[10px] text-white/50 text-center max-w-[280px]">
-                                  Scan this QR code using your WhatsApp app (Linked Devices) to link your automated sales assistant.
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-[10px] text-white/30 italic">
-                                Awaiting connection to local WhatsApp service... Ensure 'npm start' is running in the 'whatsapp-service/' folder.
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </Card>
                     </div>
                   </div>
@@ -441,6 +509,7 @@ export function SettingsPage() {
                     </div>
                   </div>
                 )}
+
               </>
             )}
           </div>
