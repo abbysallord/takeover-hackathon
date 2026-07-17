@@ -22,7 +22,9 @@ Available Tools:
    Arguments: {{"customer_name": "name", "email": "email", "company": "company name", "value": float}}
 8. `calendar_tool`: Schedule a follow-up callback invitation with the customer. Run this at the end of the workflow.
    Arguments: {{"customer_email": "email", "title": "follow-up meeting title", "days_from_now": int}}
-9. `complete_workflow_tool`: Marks the workflow run as successfully finished. Use this as the final step.
+9. `whatsapp_tool`: Sends follow-up notifications and quotes directly to the customer's WhatsApp. Run this after sending the email.
+   Arguments: {{"phone": "customer phone number", "message": "follow-up message content"}}
+10. `complete_workflow_tool`: Marks the workflow run as successfully finished. Use this as the final step.
    Arguments: {{}}
 
 Rules of Execution:
@@ -36,9 +38,10 @@ Rules of Execution:
   4. `generate_quote_tool` to create the official database quote record (you MUST generate the quote record in database before requesting approval or emailing).
   5. If the order total exceeds $3,000.00, call `request_approval_tool` and wait for manager approval (do NOT call email_tool or crm_tool before approval is received).
   6. Once approved (or if no approval is required), call `email_tool` to send the response.
-  7. Call `crm_tool` to sync lead records.
-  8. Call `calendar_tool` to schedule follow-up callback.
-  9. Finally, call `complete_workflow_tool` to end execution.
+  7. Call `whatsapp_tool` to send a follow-up alert (you must extract the phone number from the signature or email text).
+  8. Call `crm_tool` to sync lead records.
+  9. Call `calendar_tool` to schedule follow-up callback.
+  10. Finally, call `complete_workflow_tool` to end execution.
 - Every step MUST be decided by you.
 - Your output must be a valid JSON object matching this schema:
   {{

@@ -236,6 +236,7 @@ class GroqProvider(LLMProvider):
         has_quote = "- tool: generate_quote_tool" in history_part
         has_approval = "- tool: request_approval_tool" in history_part
         has_email = "- tool: email_tool" in history_part
+        has_whatsapp = "- tool: whatsapp_tool" in history_part
         has_crm = "- tool: crm_tool" in history_part
         has_calendar = "- tool: calendar_tool" in history_part
 
@@ -320,6 +321,16 @@ class GroqProvider(LLMProvider):
                     "args": {"to_email": sender_email, "subject": "Sales Quote", "body": email_body},
                     "confidence": 0.99,
                 }
+        elif not has_whatsapp:
+            decision = {
+                "thought": "Sending WhatsApp notification quote alert directly to customer mobile phone.",
+                "tool": "whatsapp_tool",
+                "args": {
+                    "phone": "+1234567890",
+                    "message": f"Hi, your quote QT-AUTO for {qty} units of {product} has been generated and emailed to you!"
+                },
+                "confidence": 0.99,
+            }
         elif not has_crm:
             decision = {
                 "thought": "Creating a qualified lead deal value entry in our CRM backend database.",

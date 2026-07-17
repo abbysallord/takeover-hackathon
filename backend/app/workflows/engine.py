@@ -21,6 +21,7 @@ from app.tools.crm import CRMTool
 from app.tools.email import EmailTool
 from app.tools.calendar import CalendarTool
 from app.tools.notification import NotificationTool
+from app.tools.whatsapp import WhatsAppTool
 from app.core.provider import llm_provider
 from app.services.rag_service import rag_service
 from app.prompts.templates import AGENT_ORCHESTRATOR_SYSTEM_PROMPT
@@ -53,6 +54,7 @@ class WorkflowEngine:
         self.email_tool = EmailTool()
         self.calendar_tool = CalendarTool()
         self.notification_tool = NotificationTool()
+        self.whatsapp_tool = WhatsAppTool()
         self.llm_provider = llm_provider
         self.rag_service = rag_service
 
@@ -482,6 +484,11 @@ class WorkflowEngine:
             
             return self.calendar_tool.schedule_followup(customer_email, title, days_from_now)
             
+        elif tool_name == "whatsapp_tool":
+            phone = tool_args.get("phone", "")
+            message = tool_args.get("message", "")
+            return self.whatsapp_tool.send_notification(phone, message)
+            
         elif tool_name == "complete_workflow_tool":
             # Check if an outbound reply was sent
             outbound = db.query(Email).filter(Email.direction == "OUTBOUND", Email.recipient == workflow.email.sender).first()
@@ -594,6 +601,7 @@ class WorkflowEngine:
             "email_tool": "SEND_REPLY",
             "crm_tool": "CREATE_LEAD",
             "calendar_tool": "SCHEDULE_FOLLOWUP",
+            "whatsapp_tool": "WHATSAPP_FOLLOWUP",
             "complete_workflow_tool": "COMPLETED",
         }
         return mapping.get(tool_name, "UNDERSTAND_REQUEST")
