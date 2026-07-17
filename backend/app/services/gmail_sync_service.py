@@ -199,13 +199,8 @@ async def poll_gmail_inbox(db: Session) -> None:
                     recipient=recipient,
                     subject=subject,
                     body=final_body,
+                    message_id=msg_id,
                 )
-
-                # Set message ID to ensure it is linked
-                email_obj = db.query(Email).filter(Email.id == workflow.email_id).first()
-                if email_obj:
-                    email_obj.message_id = msg_id
-                    db.commit()
 
                 # Mark the email read in Google Inbox
                 await client.post(

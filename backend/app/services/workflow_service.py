@@ -11,7 +11,7 @@ class WorkflowService:
         self.engine = WorkflowEngine()
 
     def process_new_email(
-        self, db: Session, sender: str, recipient: str, subject: str, body: str
+        self, db: Session, sender: str, recipient: str, subject: str, body: str, message_id: Optional[str] = None
     ) -> Workflow:
         """Saves a new inbound customer email and starts the corresponding autonomous workflow."""
         email = Email(
@@ -20,6 +20,7 @@ class WorkflowService:
             subject=subject,
             body=body,
             direction="INBOUND",
+            message_id=message_id,
         )
         db.add(email)
         db.commit()

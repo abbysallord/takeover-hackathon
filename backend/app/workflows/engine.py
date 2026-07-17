@@ -69,6 +69,38 @@ class WorkflowEngine:
         db.commit()
         db.refresh(workflow)
 
+        # 1. Parse/extract customer name and ensure Customer & Lead exist
+        from app.models.models import Customer, Lead
+        import re
+        
+        email = workflow.email
+        customer = db.query(Customer).filter(Customer.email == email.sender).first()
+        if not customer:
+            customer_name = "Valued Customer"
+            name_match = re.match(r"^([^<@\s]+(?:\s+[^<@\s]+)*)", email.sender)
+            if name_match:
+                customer_name = name_match.group(1).replace('"', '').replace("'", "").strip()
+            # Try to get company name from email domain if possible
+            company_name = None
+            domain_match = re.search(r"@([^>]+)", email.sender)
+            if domain_match:
+                domain = domain_match.group(1).strip()
+                if domain not in ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com"]:
+                    company_name = domain.split(".")[0].title()
+            customer = Customer(name=customer_name, email=email.sender, company=company_name)
+            db.add(customer)
+            db.commit()
+            db.refresh(customer)
+            
+        # Create Lead with status "NEW"
+        lead = Lead(
+            customer_id=customer.id,
+            status="NEW",
+            value=0.0
+        )
+        db.add(lead)
+        db.commit()
+
         # Log initial inbound email step
         step_received = WorkflowStep(
             workflow_id=workflow.id,
@@ -120,6 +152,15 @@ class WorkflowEngine:
             # Workflow rejected by manager
             workflow.status = "FAILED"
             db.commit()
+            
+            # Find and set lead status to LOST
+            from app.models.models import Customer, Lead
+            customer = db.query(Customer).filter(Customer.email == workflow.email.sender).first()
+            if customer:
+                lead = db.query(Lead).filter(Lead.customer_id == customer.id).order_by(Lead.created_at.desc()).first()
+                if lead:
+                    lead.status = "LOST"
+                    db.commit()
 
             # Log the failed approval step in history
             step = WorkflowStep(
@@ -270,6 +311,9 @@ class WorkflowEngine:
             quantity = tool_args.get("quantity", 100)
             unit_price = tool_args.get("unit_price", 10.0)
             total_amount = tool_args.get("total_amount", 1000.0)
+            
+            if total_amount <= 0.0 or unit_price <= 0.0:
+                raise ValueError(f"Aborting quote generation: total_amount (${total_amount}) and unit_price (${unit_price}) must be positive. Product: {product_name}, quantity: {quantity}")
             
             quote_number = f"QT-2026-{random.randint(10000, 99999)}"
             items_list = [{
@@ -464,12 +508,18 @@ class WorkflowEngine:
                 value=value
             )
             
-            lead = Lead(
-                customer_id=customer.id,
-                status="QUOTATION_SENT",
-                value=value
-            )
-            db.add(lead)
+            # Find the existing active Lead (initialized in start_workflow or earlier step) and update it
+            lead = db.query(Lead).filter(Lead.customer_id == customer.id).order_by(Lead.created_at.desc()).first()
+            if lead:
+                lead.status = "QUOTATION_SENT"
+                lead.value = value
+            else:
+                lead = Lead(
+                    customer_id=customer.id,
+                    status="QUOTATION_SENT",
+                    value=value
+                )
+                db.add(lead)
             db.commit()
             
             return {
@@ -492,6 +542,15 @@ class WorkflowEngine:
         elif tool_name == "complete_workflow_tool":
             # Check if an outbound reply was sent
             outbound = db.query(Email).filter(Email.direction == "OUTBOUND", Email.recipient == workflow.email.sender).first()
+            if not outbound:
+                # If no reply email was sent, it means the workflow completed/exited without a quote (e.g. newsletter or out-of-scope). Set lead status to LOST
+                from app.models.models import Customer, Lead
+                customer = db.query(Customer).filter(Customer.email == workflow.email.sender).first()
+                if customer:
+                    lead = db.query(Lead).filter(Lead.customer_id == customer.id, Lead.status == "NEW").order_by(Lead.created_at.desc()).first()
+                    if lead:
+                        lead.status = "LOST"
+                        db.commit()
             if outbound:
                 workflow.email.classification = "VALID_LEAD"
             else:
@@ -610,6 +669,15 @@ class WorkflowEngine:
         """Transitions parent workflow status to FAILED and publishes a notification alert."""
         workflow.status = "FAILED"
         db.commit()
+        
+        # Mark active lead as LOST on failure
+        from app.models.models import Customer, Lead
+        customer = db.query(Customer).filter(Customer.email == workflow.email.sender).first()
+        if customer:
+            lead = db.query(Lead).filter(Lead.customer_id == customer.id).order_by(Lead.created_at.desc()).first()
+            if lead:
+                lead.status = "LOST"
+                db.commit()
         
         self.notification_tool.publish_notification(
             db=db,
