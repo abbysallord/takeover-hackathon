@@ -17,7 +17,8 @@ class WhatsAppTool(BaseTool):
         service_url = os.getenv("WHATSAPP_SERVICE_URL", "http://127.0.0.1:3000")
         url = f"{service_url}/messages/send"
         try:
-            res = httpx.post(url, json={"phone": phone, "message": message}, timeout=10.0)
+            headers = {"Bypass-Tunnel-Reminder": "true"}
+            res = httpx.post(url, json={"phone": phone, "message": message}, headers=headers, timeout=10.0)
             if res.status_code == 200:
                 return {"success": True, "data": res.json()}
             else:
