@@ -5,6 +5,7 @@ from app.tools.crm import CRMTool
 from app.tools.email import EmailTool
 from app.tools.calendar import CalendarTool
 from app.tools.notification import NotificationTool
+from app.tools.whatsapp import WhatsAppTool
 
 __all__ = [
     "BaseTool",
@@ -14,4 +15,5 @@ __all__ = [
     "EmailTool",
     "CalendarTool",
     "NotificationTool",
+    "WhatsAppTool",
 ]
