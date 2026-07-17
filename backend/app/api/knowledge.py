@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
+from app.schemas.schemas import ProposeEditRequest, ProposeEditResponse, ApplyEditRequest
 
 router = APIRouter(tags=["Knowledge"])
 

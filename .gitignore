@@ -75,3 +75,4 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+implementation_plan.md
