@@ -116,18 +116,22 @@ class GroqProvider(LLMProvider):
 
     def _generate_mock_decision(self, prompt: str) -> str:
         """Determines the next workflow step deterministically based on prompt history details."""
+        # 1. Isolate the incoming customer email text from prompt to prevent matching history / RAG text
         prompt_lower = prompt.lower()
-
-        # Isolate parsing to the customer email block to avoid matching tool numbers (1, 2, 3, etc.)
-        email_context = prompt_lower
+        email_content_only = prompt_lower
+        
         email_idx = prompt_lower.find("customer email:")
         if email_idx != -1:
-            email_context = prompt_lower[email_idx:]
+            history_idx = prompt_lower.find("previous history of execution:", email_idx)
+            if history_idx != -1:
+                email_content_only = prompt_lower[email_idx:history_idx]
+            else:
+                email_content_only = prompt_lower[email_idx:]
 
-        # Extract sender email address dynamically from prompt context
+        # Extract sender email address dynamically from email content block
         sender_email = "customer@example.com"
         import re
-        sender_match = re.search(r"sender:\s*([^\n<]*<)?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email_context)
+        sender_match = re.search(r"sender:\s*([^\n<]*<)?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", email_content_only)
         if sender_match:
             sender_email = sender_match.group(2).strip()
         else:
@@ -135,10 +139,9 @@ class GroqProvider(LLMProvider):
             if sender_match_global:
                 sender_email = sender_match_global.group(1).strip()
 
-        # Check if this is an automated/newsletter email or bounce message
         sender_lower = sender_email.lower()
-        subject_lower = email_context.lower()
         
+        # Check if automated/spam email
         is_automated = (
             "noreply" in sender_lower or 
             "no-reply" in sender_lower or 
@@ -148,9 +151,9 @@ class GroqProvider(LLMProvider):
             "support@" in sender_lower or
             "team@info" in sender_lower or
             "bounce" in sender_lower or
-            "delivery status" in subject_lower or
-            "newsletter" in subject_lower or
-            "subscribed" in subject_lower or
+            "delivery status" in email_content_only or
+            "newsletter" in email_content_only or
+            "subscribed" in email_content_only or
             "pinterest" in sender_lower or
             "unstop" in sender_lower or
             "codeforces" in sender_lower
@@ -165,23 +168,44 @@ class GroqProvider(LLMProvider):
             }
             return json.dumps(decision)
 
-        # Determine if the product request is out-of-scope (not in catalog)
-        out_of_scope = True
+        # Determine product matches from CUSTOMER email block
         product = "Widget A"
+        out_of_scope = True
         
-        # Check catalog matches
-        if "widget b" in email_context or "widget-b" in email_context:
-            product = "Widget B"
-            out_of_scope = False
-        elif "widget c" in email_context or "widget-c" in email_context:
+        if "widget c" in email_content_only or "widget-c" in email_content_only:
             product = "Widget C"
             out_of_scope = False
-        elif "server rack" in email_context or "server-rack" in email_context:
+        elif "widget b" in email_content_only or "widget-b" in email_content_only:
+            product = "Widget B"
+            out_of_scope = False
+        elif "server rack" in email_content_only or "server-rack" in email_content_only:
             product = "Server Rack"
             out_of_scope = False
-        elif "widget a" in email_context or "widget-a" in email_context:
+        elif "widget a" in email_content_only or "widget-a" in email_content_only:
             product = "Widget A"
             out_of_scope = False
+
+        # Determine if it is a general information query or direct order
+        is_general_query = True
+        
+        # Check if a positive order quantity is specified in the customer email
+        qty_matches = re.findall(r"\b\d+\b", email_content_only)
+        qty = 0
+        for q in qty_matches:
+            num = int(q)
+            # Avoid matching standard constants
+            if num not in [2026, 3000, 12, 100, 500, 50] and num < 100000:
+                qty = num
+                is_general_query = False
+                break
+                
+        # If no custom quantity was extracted, check if they explicitly mention a quantity word like "a unit", "one unit", "an item"
+        if is_general_query:
+            if re.search(r"\b(one|a|an)\s+(unit|item|widget|rack)\b", email_content_only):
+                qty = 1
+                is_general_query = False
+            else:
+                qty = 1  # Default fallback quantity for pricing inquiries
 
         # Determine execution history
         history_part = ""
@@ -189,7 +213,15 @@ class GroqProvider(LLMProvider):
         if history_idx != -1:
             history_part = prompt[history_idx:].lower()
 
+        has_rag = "- tool: rag_tool" in history_part
+        has_inventory = "- tool: inventory_tool" in history_part
+        has_pricing = "- tool: pricing_tool" in history_part
+        has_quote = "- tool: generate_quote_tool" in history_part
+        has_approval = "- tool: request_approval_tool" in history_part
         has_email = "- tool: email_tool" in history_part
+        has_whatsapp = "- tool: whatsapp_tool" in history_part
+        has_crm = "- tool: crm_tool" in history_part
+        has_calendar = "- tool: calendar_tool" in history_part
 
         # Short-circuit logic for out-of-scope enquiries (e.g. pizzas)
         if out_of_scope:
@@ -215,38 +247,62 @@ class GroqProvider(LLMProvider):
                 }
             return json.dumps(decision)
 
-        # 2. Identify quantity from email context
-        qty = 100
-        qty_matches = re.findall(r"\b\d+\b", email_context)
-        for q in qty_matches:
-            num = int(q)
-            if num not in [2026, 3000, 12]:  # Ignore year, cost threshold, step limit constants
-                qty = num
-                break
-
-        # 3. Determine execution history
-        history_part = ""
-        history_idx = prompt.find("Previous History of execution:")
-        if history_idx != -1:
-            history_part = prompt[history_idx:].lower()
-
-        has_rag = "- tool: rag_tool" in history_part
-        has_inventory = "- tool: inventory_tool" in history_part
-        has_pricing = "- tool: pricing_tool" in history_part
-        has_quote = "- tool: generate_quote_tool" in history_part
-        has_approval = "- tool: request_approval_tool" in history_part
-        has_email = "- tool: email_tool" in history_part
-        has_whatsapp = "- tool: whatsapp_tool" in history_part
-        has_crm = "- tool: crm_tool" in history_part
-        has_calendar = "- tool: calendar_tool" in history_part
-
-        has_approved_review = "result: approved" in history_part
-        has_rejected_review = "result: rejected" in history_part
-
-        # 4. Standard business policy calculations
+        # Standard business pricing mappings for mock replies
         base_prices = {"Widget A": 10.0, "Widget B": 45.0, "Widget C": 120.0, "Server Rack": 850.0}
         base_price = base_prices.get(product, 25.0)
 
+        # General Conversational / Pricing Enquiry Workflow (No Quotation or Manager Approval!)
+        if is_general_query:
+            if not has_rag:
+                decision = {
+                    "thought": f"Querying the RAG documentation to retrieve exact pricing and return policies for {product}.",
+                    "tool": "rag_tool",
+                    "args": {"query": f"pricing and policies for {product}"},
+                    "confidence": 0.98,
+                }
+            elif not has_inventory:
+                decision = {
+                    "thought": f"Checking if {product} is currently available in the warehouse database.",
+                    "tool": "inventory_tool",
+                    "args": {"product": product, "quantity": 1},
+                    "confidence": 0.96,
+                }
+            elif not has_email:
+                email_body = (
+                    f"Hello,\n\nThank you for your interest! Regarding your pricing inquiry: "
+                    f"the unit price of {product} is ${base_price:.2f}. "
+                    f"We currently have stock available in our warehouse and can ship standard orders in 2 business days.\n\n"
+                    f"Please let us know if you would like to request an official quotation or place an order!\n\n"
+                    f"Best regards,\nAI Sales Operations Team"
+                )
+                decision = {
+                    "thought": f"Sending direct email response answering pricing details for {product}.",
+                    "tool": "email_tool",
+                    "args": {"to_email": sender_email, "subject": f"Information regarding {product} pricing", "body": email_body},
+                    "confidence": 0.99,
+                }
+            elif not has_crm:
+                decision = {
+                    "thought": "Logging this customer product inquiry in the CRM backend.",
+                    "tool": "crm_tool",
+                    "args": {
+                        "customer_name": "Valued Customer",
+                        "email": sender_email,
+                        "company": "Customer Company",
+                        "value": 0.0,
+                    },
+                    "confidence": 0.98,
+                }
+            else:
+                decision = {
+                    "thought": "General information request handled successfully. Finishing workflow run.",
+                    "tool": "complete_workflow_tool",
+                    "args": {},
+                    "confidence": 1.0,
+                }
+            return json.dumps(decision)
+
+        # Standard Order Quotation Workflow
         discount = 0.0
         if product in ["Widget A", "Widget B"]:
             if qty >= 500:
@@ -260,7 +316,9 @@ class GroqProvider(LLMProvider):
         total_amount = unit_price * qty
         needs_approval = total_amount > 3000.0
 
-        decision = {}
+        has_approved_review = "result: approved" in history_part
+        has_rejected_review = "result: rejected" in history_part
+
         if not has_rag:
             decision = {
                 "thought": f"I will query the RAG service to verify pricing tiers and policies for {product}.",
@@ -326,7 +384,7 @@ class GroqProvider(LLMProvider):
             if "@whatsapp.flow.hackarena.dev" in sender_email:
                 phone_num = sender_email.split("@")[0]
             else:
-                phone_match = re.search(r"(\+\d{10,15}|\b\d{10,12}\b)", email_context)
+                phone_match = re.search(r"(\+\d{10,15}|\b\d{10,12}\b)", email_content_only)
                 if phone_match:
                     phone_num = phone_match.group(1).replace(" ", "")
             
