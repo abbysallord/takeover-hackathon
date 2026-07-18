@@ -202,9 +202,9 @@ class RAGService:
 
         # Live Dynamic Database Override to prevent context divergence & gate out-of-stock items
         if results:
-            from app.models.database import SessionLocal
+            from app.models.database import get_tenant_db
             from app.models.models import Inventory
-            db = SessionLocal()
+            db = get_tenant_db()
             try:
                 db_items = db.query(Inventory).all()
                 if db_items:

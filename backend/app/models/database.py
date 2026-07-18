@@ -202,3 +202,26 @@ def get_db(request: Request = None) -> Generator:
             tenant_session_id.reset(token)
         except ValueError:
             pass
+
+
+def get_tenant_db() -> Session:
+    """Helper to return a database session for the currently active tenant session context."""
+    session_id = tenant_session_id.get()
+
+    if DATABASE_URL.startswith("sqlite"):
+        if session_id:
+            # Recreate session local dynamically for specific SQLite file
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            db_path = f"sqlite:///session_{session_id}.db"
+            temp_engine = create_engine(db_path, connect_args={"check_same_thread": False})
+            TempSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=temp_engine)
+            return TempSessionLocal()
+        else:
+            return SessionLocal()
+    else:
+        db = SessionLocal()
+        if session_id:
+            from sqlalchemy import text
+            db.execute(text(f"SET search_path TO session_{session_id}"))
+        return db
