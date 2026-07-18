@@ -187,21 +187,47 @@ class GroqProvider(LLMProvider):
 
         # Determine if it is a general information query or direct order
         is_general_query = True
-        
-        # Check if a positive order quantity is specified in the customer email
-        qty_matches = re.findall(r"\b\d+\b", email_content_only)
         qty = 0
-        for q in qty_matches:
-            num = int(q)
-            # Avoid matching standard constants
-            if num not in [2026, 3000, 12, 100, 500, 50] and num < 100000:
-                qty = num
-                is_general_query = False
+
+        # Locate the body field in the customer email section to avoid scanning sender email domains/names/subject
+        body_content = email_content_only
+        body_idx = email_content_only.find("body:")
+        if body_idx != -1:
+            body_content = email_content_only[body_idx:]
+
+        # 1. Search for keyword-associated quantity patterns (e.g. "20 units", "20 widgets", "20 pcs", "quantity: 20")
+        patterns = [
+            r"\b(\d+)\s*(?:unit|pcs|piece|item|widget|rack|box|pack)s?\b",
+            r"\b(?:qty|quantity|amount|number)\s*(?:of|is|:)?\s*(\d+)\b",
+            r"\b(?:order|request|buy|purchase|send|need)\s+(\d+)\b"
+        ]
+
+        for pattern in patterns:
+            matches = re.findall(pattern, body_content)
+            if matches:
+                # Find the first positive number
+                for match in matches:
+                    num = int(match)
+                    if 0 < num < 100000:
+                        qty = num
+                        is_general_query = False
+                        break
+            if qty > 0:
                 break
-                
-        # If no custom quantity was extracted, check if they explicitly mention a quantity word like "a unit", "one unit", "an item"
+
+        # 2. Fallback: check if there is any standalone positive integer under 5000 units in the body
+        if qty == 0:
+            qty_matches = re.findall(r"\b\d+\b", body_content)
+            for q in qty_matches:
+                num = int(q)
+                if num not in [2026, 3000, 12, 100, 500, 50, 8000, 8001] and 0 < num < 5000:
+                    qty = num
+                    is_general_query = False
+                    break
+
+        # 3. If no custom quantity was extracted, check if they explicitly mention a quantity word like "a unit", "one unit", "an item"
         if is_general_query:
-            if re.search(r"\b(one|a|an)\s+(unit|item|widget|rack)\b", email_content_only):
+            if re.search(r"\b(one|a|an)\s+(unit|item|widget|rack)\b", body_content):
                 qty = 1
                 is_general_query = False
             else:
