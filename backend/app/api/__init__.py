@@ -11,6 +11,7 @@ from app.api.quotations import router as quotations_router
 from app.api.notifications import router as notifications_router
 from app.api.knowledge import router as knowledge_router
 from app.api.inventory import router as inventory_router
+from app.api.mcp import router as mcp_router
 
 __all__ = [
     "health_router",
@@ -26,5 +27,6 @@ __all__ = [
     "notifications_router",
     "knowledge_router",
     "inventory_router",
+    "mcp_router",
 ]
 

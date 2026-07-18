@@ -26,6 +26,7 @@ from app.api import (
     notifications_router,
     knowledge_router,
     inventory_router,
+    mcp_router,
 )
 
 
@@ -116,8 +117,8 @@ async def gmail_polling_task():
                 await asyncio.gather(*(safe_poll(t) for t in tenant_sessions), return_exceptions=True)
         except Exception as e:
             print(f"⚠️ Exception in Gmail polling task: {e}")
-        # Poll inbox every 60 seconds to prevent database connection exhaustion
-        await asyncio.sleep(60)
+        # Poll inbox every 10 seconds for rapid lead response times
+        await asyncio.sleep(10)
 
 
 @asynccontextmanager
@@ -271,4 +272,5 @@ app.include_router(quotations_router)
 app.include_router(notifications_router)
 app.include_router(knowledge_router)
 app.include_router(inventory_router)
+app.include_router(mcp_router)
 
