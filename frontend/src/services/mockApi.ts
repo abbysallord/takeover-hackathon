@@ -56,6 +56,26 @@ export const mockApi = {
     }
   },
 
+  simulateHighValueWorkflow: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workflows/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: 'elon@spacex.com',
+          recipient: 'sales@company.com',
+          subject: 'Urgent SpaceX request for 400 units of Widget-B',
+          body: 'Hello, SpaceX requires 400 units of Widget B SKU: WD-B-02 for our Falcon 9 assembly. Please draft an official quotation and notify us immediately.'
+        })
+      });
+      if (!res.ok) throw new Error("Simulation fetch failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error simulating high-value workflow:", e);
+      return null;
+    }
+  },
+
   getWorkflows: async (): Promise<any[]> => {
     try {
       const res = await fetch(`${API_BASE}/dashboard`);

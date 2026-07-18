@@ -287,10 +287,16 @@ export function DashboardOverview() {
                   )}
                   {currentDisplayStep === 4 && (
                     <div>
-                      <h4 className="text-sm font-medium text-white mb-1.5">Evaluate Orchestration and Approvals</h4>
-                      <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
-                        The background worker runs the lead through catalog RAG checks. Quotes under $3,000 are sent instantly. Quotes over $3,000 require manager validation: check the **Approvals** screen in the sidebar to review and release the quote!
-                      </p>
+                      <h4 className="text-sm font-medium text-white mb-1.5 font-sans">Evaluate Orchestration and Approvals</h4>
+                      {(stats?.pendingApprovals || 0) > 0 ? (
+                        <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                          The background worker detected a high-value quotation request. **There is currently {stats.pendingApprovals} quote(s) awaiting your authorization!** Click the <strong>View Approvals</strong> button to review, approve, or reject the draft.
+                        </p>
+                      ) : (
+                        <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                          Quotation requests under $3,000 are released instantly. Quotations over $3,000 require validation. **You currently have 0 pending approvals.** Click the **Simulate High-Value Order** button below to mock a $12,000 inquiry (400 units of Widget B) to test this flow!
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -329,12 +335,28 @@ export function DashboardOverview() {
                     </button>
                   )}
                   {currentDisplayStep === 4 && (
-                    <button 
-                      onClick={() => navigate('/dashboard/approvals')}
-                      className="px-3.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors text-white text-[11px] font-medium"
-                    >
-                      View Approvals
-                    </button>
+                    (stats?.pendingApprovals || 0) > 0 ? (
+                      <button 
+                        onClick={() => navigate('/dashboard/approvals')}
+                        className="px-3.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors text-white text-[11px] font-medium"
+                      >
+                        View Approvals
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={async () => {
+                          setIsLoading(true);
+                          await mockApi.simulateHighValueWorkflow();
+                          Promise.all([
+                            mockApi.getStats().then(setStats),
+                            mockApi.getWorkflows().then(setWorkflows)
+                          ]).then(() => setIsLoading(false));
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-[#28c840] hover:opacity-95 text-white text-[11px] font-semibold transition-all shadow-md"
+                      >
+                        Simulate High-Value
+                      </button>
+                    )
                   )}
                 </div>
               </div>
