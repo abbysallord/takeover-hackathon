@@ -142,8 +142,6 @@ def get_db(request: Request = None) -> Generator:
                         seed_database(db)
                         db.commit()
                         INITIALIZED_SQLITE_FILES.add(session_id)
-                    else:
-                        migrate_schema_columns(db, session_id)
                     yield db
                 finally:
                     db.close()
@@ -193,7 +191,9 @@ def get_db(request: Request = None) -> Generator:
                     db.close()
             else:
                 try:
-                    migrate_schema_columns(db, None)
+                    if "public" not in INITIALIZED_SCHEMAS:
+                        migrate_schema_columns(db, None)
+                        INITIALIZED_SCHEMAS.add("public")
                     yield db
                 finally:
                     db.close()

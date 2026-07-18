@@ -48,7 +48,7 @@ export function InboxPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [selectedId]);
+  }, []);
 
   useEffect(() => {
     if (selectedId !== null) {
