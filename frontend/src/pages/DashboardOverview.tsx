@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Grid, CheckCircle2, RotateCw, Sparkles, Zap, Mail } from 'lucide-react';
+import { Grid, CheckCircle2, RotateCw, Sparkles, Zap, Mail, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
 
@@ -9,6 +9,9 @@ export function DashboardOverview() {
   const [companyName, setCompanyName] = useState('Acme Electronics');
   const [expandedStepId, setExpandedStepId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTour, setShowTour] = useState(true);
+  const [lastSyncedText, setLastSyncedText] = useState('Checking...');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     mockApi.getWorkspace().then(workspace => {
@@ -34,6 +37,45 @@ export function DashboardOverview() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let syncInterval: any;
+    
+    const refreshSyncTime = async () => {
+      const res = await mockApi.getSyncStatus();
+      if (res && res.last_synced_at) {
+        const diff = Math.floor((Date.now() - new Date(res.last_synced_at).getTime()) / 1000);
+        if (diff < 5) setLastSyncedText('Just now');
+        else if (diff < 60) setLastSyncedText(`${diff}s ago`);
+        else setLastSyncedText(`${Math.floor(diff / 60)}m ago`);
+      } else {
+        setLastSyncedText('Never');
+      }
+    };
+
+    refreshSyncTime();
+    syncInterval = setInterval(refreshSyncTime, 5000);
+    return () => clearInterval(syncInterval);
+  }, []);
+
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await mockApi.triggerSync();
+      // Immediately refresh stats & workflows
+      const [s, w] = await Promise.all([
+        mockApi.getStats(),
+        mockApi.getWorkflows()
+      ]);
+      setStats(s);
+      setWorkflows(w);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <PageTransition>
       <div className="max-w-5xl mx-auto">
@@ -49,6 +91,22 @@ export function DashboardOverview() {
             </div>
           </div>
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
+            {/* Real-time Gmail Sync Status & Trigger */}
+            <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.02] ring-1 ring-white/5 text-[11px] backdrop-blur-md">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-blue-400 animate-ping' : 'bg-[#28c840]'}`} />
+                <span className="text-white/40 uppercase font-semibold tracking-wider">Gmail Inbox:</span>
+              </div>
+              <span className="text-white/75 font-mono">{isSyncing ? 'Syncing...' : lastSyncedText}</span>
+              <button 
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                title="Sync Gmail Now"
+                className={`p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 transition-all ${isSyncing ? 'cursor-not-allowed opacity-50' : ''}`}
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-400' : ''}`} />
+              </button>
+            </div>
             <button 
               onClick={async () => {
                 setIsLoading(true);
@@ -80,6 +138,38 @@ export function DashboardOverview() {
               Simulate New Email
             </button>
           </div>
+        </div>
+
+        {/* Quick Start Walkthrough Guide */}
+        <div className="mb-8 rounded-2xl bg-gradient-to-r from-blue-500/5 to-[#28c840]/5 ring-1 ring-white/10 p-5 backdrop-blur-md">
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowTour(!showTour)}>
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-5 h-5 text-blue-400 animate-pulse" />
+              <h3 className="text-sm font-semibold text-white tracking-wide">Quick Start Evaluation Guide</h3>
+            </div>
+            {showTour ? <ChevronUp className="w-4 h-4 text-white/60" /> : <ChevronDown className="w-4 h-4 text-white/60" />}
+          </div>
+          
+          {showTour && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 border-t border-white/5 pt-4 text-[11px] leading-relaxed">
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
+                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Step 1: Set Catalog</span>
+                <p className="text-white/65">Upload a product catalog and discount criteria in the onboarding screen or under the <strong>Settings</strong> tab.</p>
+              </div>
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
+                <span className="text-[10px] text-[#28c840] font-bold uppercase tracking-wider">Step 2: Connect Gmail</span>
+                <p className="text-white/65">Connect a test Gmail inbox under <strong>Settings</strong> integrations to activate autonomous email parsing.</p>
+              </div>
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
+                <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider">Step 3: Send Test Mail</span>
+                <p className="text-white/65">Send an email to that address (e.g. <em>"How much is 20 units of Widget A?"</em> or request 500 units for approval).</p>
+              </div>
+              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
+                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Step 4: Sync & Verify</span>
+                <p className="text-white/65">Click the <strong>Sync Gmail Now</strong> button above. If order &gt; $3,000, go to <strong>Approvals</strong>; else, check <strong>Inbox</strong>!</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}

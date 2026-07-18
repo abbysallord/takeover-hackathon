@@ -393,3 +393,29 @@ def resume_workspace(data: ResumeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid security passcode.")
         
     return {"status": "success", "session_id": data.slug}
+
+
+@router.get("/workspace/sync-status")
+def get_sync_status():
+    """Returns the last successfully completed Gmail sync timestamp for the active tenant."""
+    from app.models.database import tenant_session_id, LAST_SYNC_TIMES
+    session_id = tenant_session_id.get()
+    return {"last_synced_at": LAST_SYNC_TIMES.get(session_id)}
+
+
+@router.post("/workspace/sync")
+async def trigger_manual_sync(db: Session = Depends(get_db)):
+    """Triggers an immediate background Gmail sync for the active tenant."""
+    from app.services.gmail_sync_service import poll_gmail_inbox
+    from app.models.database import tenant_session_id, LAST_SYNC_TIMES
+    from datetime import datetime
+    
+    session_id = tenant_session_id.get()
+    try:
+        await poll_gmail_inbox(db)
+        LAST_SYNC_TIMES[session_id] = datetime.utcnow().isoformat() + "Z"
+        return {"status": "success", "last_synced_at": LAST_SYNC_TIMES[session_id]}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Manual sync failed: {str(e)}")

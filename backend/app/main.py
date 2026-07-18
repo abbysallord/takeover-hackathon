@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models.database import Base, engine, SessionLocal, DATABASE_URL, tenant_session_id
+from app.models.database import Base, engine, SessionLocal, DATABASE_URL, tenant_session_id, LAST_SYNC_TIMES
 from app.services.seed_service import seed_database
 from app.api import (
     health_router,
@@ -74,6 +74,8 @@ async def gmail_polling_task():
                                 migrate_schema_columns(db, clean_tenant)
                                 INITIALIZED_SQLITE_FILES.add(clean_tenant)
                             await poll_gmail_inbox(db)
+                            from datetime import datetime
+                            LAST_SYNC_TIMES[clean_tenant] = datetime.utcnow().isoformat() + "Z"
                         finally:
                             db.close()
                     else:
@@ -87,6 +89,8 @@ async def gmail_polling_task():
                                 
                             db.execute(text(f"SET search_path TO session_{clean_tenant}"))
                             await poll_gmail_inbox(db)
+                            from datetime import datetime
+                            LAST_SYNC_TIMES[clean_tenant] = datetime.utcnow().isoformat() + "Z"
                         except Exception as e:
                             print(f"Error polling tenant session_{clean_tenant}: {e}")
                         finally:

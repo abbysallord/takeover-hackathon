@@ -273,6 +273,31 @@ export const mockApi = {
     }
   },
 
+  getSyncStatus: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/sync-status`);
+      if (!res.ok) throw new Error("Sync status failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error getting sync status:", e);
+      return null;
+    }
+  },
+
+  triggerSync: async (): Promise<any> => {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error("Trigger sync failed");
+      return await res.json();
+    } catch (e) {
+      console.error("Error triggering sync:", e);
+      return null;
+    }
+  },
+
   runDemoMode: async (): Promise<any> => {
     try {
       const res = await fetch(`${API_BASE}/workflows/demo-run`, {

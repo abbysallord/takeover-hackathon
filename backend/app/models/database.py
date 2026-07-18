@@ -225,3 +225,7 @@ def get_tenant_db() -> Session:
             from sqlalchemy import text
             db.execute(text(f"SET search_path TO session_{session_id}"))
         return db
+
+
+# In-memory dictionary to store last email synchronization times for active workspaces
+LAST_SYNC_TIMES = {}
