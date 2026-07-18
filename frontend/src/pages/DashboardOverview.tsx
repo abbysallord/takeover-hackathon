@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Grid, CheckCircle2, RotateCw, Sparkles, Zap, Mail, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { PageTransition } from '../components/PageTransition';
 import { mockApi } from '../services/mockApi';
 
 export function DashboardOverview() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [companyName, setCompanyName] = useState('Acme Electronics');
@@ -13,9 +15,15 @@ export function DashboardOverview() {
   const [lastSyncedText, setLastSyncedText] = useState('Checking...');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [workspace, setWorkspace] = useState<any>(null);
+  const [selectedTourStep, setSelectedTourStep] = useState<number | null>(null);
+
   useEffect(() => {
-    mockApi.getWorkspace().then(workspace => {
-      if (workspace) setCompanyName(workspace.company_name);
+    mockApi.getWorkspace().then(w => {
+      if (w) {
+        setWorkspace(w);
+        setCompanyName(w.company_name);
+      }
     });
     
     const fetchData = () => {
@@ -63,18 +71,34 @@ export function DashboardOverview() {
     try {
       await mockApi.triggerSync();
       // Immediately refresh stats & workflows
-      const [s, w] = await Promise.all([
+      const [s, w, wk] = await Promise.all([
         mockApi.getStats(),
-        mockApi.getWorkflows()
+        mockApi.getWorkflows(),
+        mockApi.getWorkspace()
       ]);
       setStats(s);
       setWorkflows(w);
+      if (wk) setWorkspace(wk);
     } catch (e) {
       console.error(e);
     } finally {
       setIsSyncing(false);
     }
   };
+
+  const step1Completed = !!workspace?.catalog_data;
+  const step2Completed = !!workspace?.gmail_connected;
+  const step3Completed = (stats?.emailsReceived || 0) > 0;
+  const step4Completed = (stats?.quotesGenerated || 0) > 0 || (stats?.pendingApprovals || 0) > 0;
+
+  const getActiveStep = () => {
+    if (!step1Completed) return 1;
+    if (!step2Completed) return 2;
+    if (!step3Completed) return 3;
+    return 4;
+  };
+  const activeStep = getActiveStep();
+  const currentDisplayStep = selectedTourStep !== null ? selectedTourStep : activeStep;
 
   return (
     <PageTransition>
@@ -140,33 +164,179 @@ export function DashboardOverview() {
           </div>
         </div>
 
-        {/* Quick Start Walkthrough Guide */}
-        <div className="mb-8 rounded-2xl bg-gradient-to-r from-blue-500/5 to-[#28c840]/5 ring-1 ring-white/10 p-5 backdrop-blur-md">
+        {/* Interactive Workspace Setup Progress Stepper */}
+        <div className="mb-8 rounded-2xl bg-white/[0.02] ring-1 ring-white/10 p-6 backdrop-blur-md">
           <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowTour(!showTour)}>
             <div className="flex items-center gap-3">
-              <BookOpen className="w-5 h-5 text-blue-400 animate-pulse" />
-              <h3 className="text-sm font-semibold text-white tracking-wide">Quick Start Evaluation Guide</h3>
+              <BookOpen className="w-5 h-5 text-blue-400" />
+              <div>
+                <h3 className="text-sm font-semibold text-white tracking-wide">Interactive Guided Setup</h3>
+                <p className="text-[10px] text-white/40 mt-0.5">Learn how to test and run the autonomous sales pipeline</p>
+              </div>
             </div>
-            {showTour ? <ChevronUp className="w-4 h-4 text-white/60" /> : <ChevronDown className="w-4 h-4 text-white/60" />}
+            <div className="flex items-center gap-3">
+              {/* Overall Progress Indicator */}
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/60 font-mono">
+                {([step1Completed, step2Completed, step3Completed, step4Completed].filter(Boolean).length)} / 4 Steps
+              </span>
+              {showTour ? <ChevronUp className="w-4 h-4 text-white/60" /> : <ChevronDown className="w-4 h-4 text-white/60" />}
+            </div>
           </div>
           
           {showTour && (
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 border-t border-white/5 pt-4 text-[11px] leading-relaxed">
-              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
-                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Step 1: Set Catalog</span>
-                <p className="text-white/65">Upload a product catalog and discount criteria in the onboarding screen or under the <strong>Settings</strong> tab.</p>
+            <div className="mt-6 border-t border-white/5 pt-6">
+              {/* Stepper Header Timeline */}
+              <div className="flex items-center justify-between mb-6 max-w-2xl mx-auto px-4">
+                {[
+                  { id: 1, label: "Catalog", done: step1Completed },
+                  { id: 2, label: "Gmail Link", done: step2Completed },
+                  { id: 3, label: "Inquiry", done: step3Completed },
+                  { id: 4, label: "Pipeline", done: step4Completed }
+                ].map((step, idx) => (
+                  <div key={step.id} className="flex items-center flex-1 last:flex-initial">
+                    {/* Circle Node */}
+                    <button 
+                      onClick={() => setSelectedTourStep(step.id)}
+                      className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 ring-4 ${
+                        currentDisplayStep === step.id 
+                          ? 'ring-blue-500/20 bg-blue-500 text-white' 
+                          : step.done 
+                            ? 'ring-emerald-500/10 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                            : 'ring-transparent bg-white/5 text-white/40 hover:bg-white/10'
+                      }`}
+                    >
+                      {step.done ? "✓" : step.id}
+                      
+                      {/* Floating Step Title */}
+                      <span className={`absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-medium tracking-wide uppercase ${
+                        currentDisplayStep === step.id ? 'text-blue-400 font-bold' : step.done ? 'text-emerald-400' : 'text-white/30'
+                      }`}>
+                        {step.label}
+                      </span>
+                    </button>
+
+                    {/* Progress Connecting Line */}
+                    {idx < 3 && (
+                      <div className={`flex-1 h-0.5 mx-3 rounded-full transition-all duration-500 ${
+                        step.done ? 'bg-gradient-to-r from-emerald-500/50 to-emerald-500/10' : 'bg-white/5'
+                      }`} />
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
-                <span className="text-[10px] text-[#28c840] font-bold uppercase tracking-wider">Step 2: Connect Gmail</span>
-                <p className="text-white/65">Connect a test Gmail inbox under <strong>Settings</strong> integrations to activate autonomous email parsing.</p>
-              </div>
-              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
-                <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider">Step 3: Send Test Mail</span>
-                <p className="text-white/65">Send an email to that address (e.g. <em>"How much is 20 units of Widget A?"</em> or request 500 units for approval).</p>
-              </div>
-              <div className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.01] ring-1 ring-white/5">
-                <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Step 4: Sync & Verify</span>
-                <p className="text-white/65">Click the <strong>Sync Gmail Now</strong> button above. If order &gt; $3,000, go to <strong>Approvals</strong>; else, check <strong>Inbox</strong>!</p>
+
+              {/* Step Context Display Cards */}
+              <div className="mt-8 p-4 rounded-xl bg-white/[0.01] ring-1 ring-white/5 flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[10px] text-blue-400 uppercase font-bold tracking-wider font-mono">Step {currentDisplayStep} of 4</span>
+                    
+                    {/* Dynamic Status Badges */}
+                    {currentDisplayStep === 1 && (
+                      step1Completed 
+                        ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">✅ Active (Catalog Ready)</span>
+                        : <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20 animate-pulse">⚡ Action Required</span>
+                    )}
+                    {currentDisplayStep === 2 && (
+                      step2Completed 
+                        ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">✅ Gmail Connected</span>
+                        : (step1Completed 
+                            ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20 animate-pulse">⚡ Next Action</span>
+                            : <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 font-medium">⏳ Locked</span>)
+                    )}
+                    {currentDisplayStep === 3 && (
+                      step3Completed 
+                        ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">✅ Email Logged</span>
+                        : (step2Completed 
+                            ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20 animate-pulse">⚡ Next Action</span>
+                            : <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 font-medium">⏳ Locked</span>)
+                    )}
+                    {currentDisplayStep === 4 && (
+                      step4Completed 
+                        ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">✅ Quote Processed</span>
+                        : (step3Completed 
+                            ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium border border-blue-500/20 animate-pulse">⚡ Next Action</span>
+                            : <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 font-medium">⏳ Locked</span>)
+                    )}
+                  </div>
+                  
+                  {/* Step Description copy-paste contents */}
+                  {currentDisplayStep === 1 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-white mb-1.5">Configure Product Inventory & Pricing Rules</h4>
+                      <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                        To enable the sales operations agent to classify catalog requests, run pricing computations, and gate out-of-stock items, upload catalog files. You can configure this under the <strong>Settings</strong> tab in the sidebar.
+                      </p>
+                    </div>
+                  )}
+                  {currentDisplayStep === 2 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-white mb-1.5">Connect Sales Gmail Inbox</h4>
+                      <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                        Authorize the background sales agent to read and reply to emails automatically. Head to the <strong>Settings</strong> integrations panel, input your Google credentials, and click **Connect Gmail** to authorize.
+                      </p>
+                    </div>
+                  )}
+                  {currentDisplayStep === 3 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-white mb-1.5">Send a Test Sales Inquiry Email</h4>
+                      <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                        Send an email from your personal account to the connected business inbox. Try asking for prices (e.g., <em>"How much is 1 unit of Widget A?"</em>) or request a purchase (e.g., <em>"Please send me 20 units of Widget B."</em>).
+                      </p>
+                    </div>
+                  )}
+                  {currentDisplayStep === 4 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-white mb-1.5">Evaluate Orchestration and Approvals</h4>
+                      <p className="text-white/50 text-[11px] leading-relaxed max-w-2xl">
+                        The background worker runs the lead through catalog RAG checks. Quotes under $3,000 are sent instantly. Quotes over $3,000 require manager validation: check the **Approvals** screen in the sidebar to review and release the quote!
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Walkthrough CTA buttons */}
+                <div className="flex md:flex-col justify-end items-end gap-2.5 min-w-[120px]">
+                  {currentDisplayStep === 1 && (
+                    <button 
+                      onClick={() => navigate('/dashboard/settings')}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors text-white text-[11px] font-medium"
+                    >
+                      Go to Settings
+                    </button>
+                  )}
+                  {currentDisplayStep === 2 && (
+                    <button 
+                      onClick={() => navigate('/dashboard/settings')}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors text-white text-[11px] font-medium"
+                    >
+                      Configure Inbox
+                    </button>
+                  )}
+                  {currentDisplayStep === 3 && (
+                    <button 
+                      onClick={async () => {
+                        setIsLoading(true);
+                        await mockApi.simulateWorkflow();
+                        Promise.all([
+                          mockApi.getStats().then(setStats),
+                          mockApi.getWorkflows().then(setWorkflows)
+                        ]).then(() => setIsLoading(false));
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/5 text-white text-[11px] font-medium transition-colors"
+                    >
+                      Simulate Email
+                    </button>
+                  )}
+                  {currentDisplayStep === 4 && (
+                    <button 
+                      onClick={() => navigate('/dashboard/approvals')}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors text-white text-[11px] font-medium"
+                    >
+                      View Approvals
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
