@@ -544,7 +544,6 @@ class WorkflowEngine:
             outbound = db.query(Email).filter(Email.direction == "OUTBOUND", Email.recipient == workflow.email.sender).first()
             if not outbound:
                 # If no reply email was sent, it means the workflow completed/exited without a quote (e.g. newsletter or out-of-scope). Set lead status to LOST
-                from app.models.models import Customer, Lead
                 customer = db.query(Customer).filter(Customer.email == workflow.email.sender).first()
                 if customer:
                     lead = db.query(Lead).filter(Lead.customer_id == customer.id, Lead.status == "NEW").order_by(Lead.created_at.desc()).first()
